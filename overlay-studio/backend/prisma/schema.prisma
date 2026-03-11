@@ -1,0 +1,81 @@
+// Implux — Prisma schema
+// PostgreSQL (Railway managed DB)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+}
+
+model Merchant {
+  id            Int        @id @default(autoincrement())
+  storeName     String
+  shopifyDomain String     @unique
+  accessToken   String
+  rakutenMid    String?
+  status        String     @default("active")
+  campaigns     Campaign[]
+  createdAt     DateTime   @default(now())
+}
+
+model Campaign {
+  id                Int             @id @default(autoincrement())
+  name              String
+  merchantId        Int
+  merchant          Merchant        @relation(fields: [merchantId], references: [id])
+  type              String
+  status            String          @default("draft")
+  triggerConfig     Json
+  designConfig      Json
+  promoCode         String?
+  impressions       Int             @default(0)
+  clicks            Int             @default(0)
+  conversions       Int             @default(0)
+  revenueAttributed Decimal         @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  events            CampaignEvent[]
+}
+
+model CampaignEvent {
+  id         Int      @id @default(autoincrement())
+  campaignId Int
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+  eventType  String
+  shopDomain String
+  orderId    String?
+  orderValue Decimal?
+  timestamp  DateTime @default(now())
+}
+
+model RakutenTransaction {
+  id               Int      @id @default(autoincrement())
+  orderId          String   @unique
+  mid              String
+  saleAmount       Decimal
+  commissionAmount Decimal
+  transactionDate  DateTime
+  status           String
+  campaignId       Int?
+  createdAt        DateTime @default(now())
+}
+
+model RakutenCredentials {
+  id            Int      @id @default(autoincrement())
+  clientId      String
+  clientSecret  String
+  publisherId   String
+  securityToken String
+  updatedAt     DateTime @updatedAt
+}

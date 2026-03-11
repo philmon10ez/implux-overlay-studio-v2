@@ -1,0 +1,34 @@
+# Implux — Shopify App
+# Set app_url in Railway to your Remix service URL (e.g. https://overlay-studio-shopify.up.railway.app)
+
+name = "overlay-studio"
+client_id = "YOUR_CLIENT_ID"
+application_url = "https://YOUR-RAILWAY-REMIX-SERVICE.up.railway.app"
+embedded = true
+
+[access_scopes]
+scopes = "read_products,write_script_tags,read_orders,write_themes,read_themes"
+
+[auth]
+redirect_urls = [
+  "https://YOUR-RAILWAY-REMIX-SERVICE.up.railway.app/auth/callback",
+  "https://YOUR-RAILWAY-REMIX-SERVICE.up.railway.app/auth/shopify/callback"
+]
+
+[webhooks]
+api_version = "2024-01"
+
+# orders/create → backend proxy (conversion tracking)
+[[webhooks.subscriptions]]
+topics = ["orders/create"]
+uri = "https://YOUR-RAILWAY-BACKEND.up.railway.app/proxy/conversion"
+
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "https://YOUR-RAILWAY-REMIX-SERVICE.up.railway.app/webhooks/app/uninstalled"
+
+[pos]
+embedded = false
+
+[build]
+include_config_on_deploy = true

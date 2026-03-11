@@ -1,0 +1,13 @@
+{% comment %}
+  Implux — App Embed block.
+  Loads the overlay-engine.js script on the storefront.
+{% endcomment %}
+{{ 'overlay-engine.js' | asset_url | script_tag }}
+
+{% schema %}
+{
+  "name": "Implux",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}

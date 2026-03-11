@@ -1,0 +1,371 @@
+================================================================================
+IMPLUX.IO — EXACT BUILD STEPS IN EXACT ORDER
+================================================================================
+Use this file as a linear checklist. Do steps in order. Each step says exactly
+what to do, which files, and when to push to GitHub.
+
+REPO STRUCTURE (where things live in the code):
+  overlay-studio/
+    backend/           ← Node/Express API (Railway service 1)
+    frontend/          ← React/Vite dashboard (Vercel)
+    shopify-app/       ← Remix Shopify app (Railway service 2)
+      extensions/
+        overlay-engine/           ← Theme app extension
+          assets/
+            overlay-engine.js    ← FILE TO EDIT: PROXY_URL
+      shopify.app.toml           ← FILE TO EDIT: client_id, URLs, webhooks
+    docs/              ← You are here
+
+================================================================================
+PHASE 1 — GET CREDENTIALS (before any deploy)
+================================================================================
+
+STEP 1. Create Supabase project (database)
+--------------------------------------------------------------------------------
+  WHERE:  https://supabase.com → Sign in → New project
+
+  DO:
+    • Choose organization (or create one).
+    • Project name: e.g. implux-overlay
+    • Database password: set a strong password and SAVE IT (you need it for DATABASE_URL).
+    • Region: pick closest to you.
+    • Click Create new project. Wait until it is ready.
+
+  GET DATABASE_URL:
+    • In Supabase: Project Settings (gear icon, left sidebar) → Database.
+    • Under "Connection string" choose "URI".
+    • Copy the URI. It looks like:
+      postgresql://postgres.[PROJECT_REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
+    • Replace [YOUR-PASSWORD] with the database password you set.
+    • Ensure the end has: ?sslmode=require  (add it if missing).
+    • SAVE this full string — you will paste it as DATABASE_URL in Railway (backend and shopify-app) and in local .env files.
+
+  FILES: None. This is only in Supabase dashboard and your notes.
+
+
+STEP 2. Generate secrets (JWT and HMAC)
+--------------------------------------------------------------------------------
+  WHERE:  On your machine (terminal/PowerShell).
+
+  DO:
+    • Generate JWT_SECRET. Run:
+        openssl rand -hex 32
+      Copy the output (64 characters). Save as JWT_SECRET.
+    • Generate again for PROXY_HMAC_SECRET:
+        openssl rand -hex 32
+      Copy the output. Save as PROXY_HMAC_SECRET.
+
+  FILES: None. Keep these in your notes; you will paste them into Railway and local .env.
+
+
+STEP 3. Create Shopify Partner app
+--------------------------------------------------------------------------------
+  WHERE:  https://partners.shopify.com → Apps → Create app → Create app manually
+
+  DO:
+    • Create the app. Open it.
+    • Go to "Configuration" (or App setup).
+    • Copy "Client ID" → save as SHOPIFY_CLIENT_ID (same as SHOPIFY_API_KEY).
+    • Click "Show" under "Client secret" → copy → save as SHOPIFY_CLIENT_SECRET (same as SHOPIFY_API_SECRET).
+
+  LEAVE FOR LATER (Step 11): App URL and Allowed redirection URL(s). You will set these after you have your Railway Shopify app URL.
+
+  FILES: None. Values go into Railway, Vercel, and repo files later.
+
+
+STEP 4. (Optional) Rakuten credentials
+--------------------------------------------------------------------------------
+  If you want commission tracking: get credentials from Rakuten Advertising and save RAKUTEN_CLIENT_ID, RAKUTEN_CLIENT_SECRET, RAKUTEN_PUBLISHER_ID, RAKUTEN_SECURITY_TOKEN.
+  If you skip: leave these env vars empty in Railway and .env; app still works.
+
+
+================================================================================
+PHASE 2 — GITHUB REPO AND FIRST PUSH
+================================================================================
+
+STEP 5. Create GitHub repo and push code (first push)
+--------------------------------------------------------------------------------
+  WHERE:  github.com → New repository (e.g. implux-overlay-studio).
+
+  DO:
+    • Create repo (empty or with README — you will push existing code).
+    • On your machine, open the project folder (overlay-studio or parent that contains backend, frontend, shopify-app).
+    • If not already a git repo:
+        git init
+    • Add remote:
+        git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+    • Add all files, commit, push:
+        git add .
+        git commit -m "Initial Implux overlay project"
+        git branch -M main
+        git push -u origin main
+
+  WHEN TO PUSH: This is the first push. You can push with placeholder values in shopify.app.toml and overlay-engine.js; you will replace those and push again after Step 8.
+
+  FILES IN REPO: Entire overlay-studio tree (backend, frontend, shopify-app, docs). Do NOT commit .env files — ensure .env is in .gitignore (backend, frontend, shopify-app each typically have .gitignore that includes .env).
+
+
+================================================================================
+PHASE 3 — RAILWAY (BACKEND + SHOPIFY APP)
+================================================================================
+
+STEP 6. Create Railway project and add Backend service
+--------------------------------------------------------------------------------
+  WHERE:  https://railway.app → Log in → New Project
+
+  DO:
+    • New Project → "Deploy from GitHub repo".
+    • Select your GitHub account/repo (the one you pushed in Step 5).
+    • Railway may deploy the whole repo. You must set ROOT DIRECTORY so it runs the backend only.
+
+  SET ROOT DIRECTORY FOR BACKEND:
+    • Click the service that Railway created (or add a new service from same repo).
+    • Settings → Root Directory (or "Source"): set to  backend
+    • So the service runs from the backend folder. Save.
+
+  ADD VARIABLES (Railway → this service → Variables tab → New Variable). Add each by name and value:
+
+    DATABASE_URL          = [Full Supabase URI from Step 1]
+    JWT_SECRET            = [From Step 2]
+    FRONTEND_URL          = [Leave blank for now; you will add after Step 9, then redeploy. Or use a placeholder like https://implux.vercel.app]
+    SHOPIFY_API_KEY       = [SHOPIFY_CLIENT_ID from Step 3]
+    SHOPIFY_API_SECRET    = [SHOPIFY_CLIENT_SECRET from Step 3]
+    PROXY_HMAC_SECRET     = [From Step 2]
+    RAKUTEN_CLIENT_ID     = [Step 4 or leave empty]
+    RAKUTEN_CLIENT_SECRET = [Step 4 or leave empty]
+    RAKUTEN_PUBLISHER_ID  = [Step 4 or leave empty]
+    RAKUTEN_SECURITY_TOKEN = [Step 4 or leave empty]
+
+  Do NOT set PORT; Railway sets it.
+
+  GET BACKEND URL:
+    • Settings → Domains → Railway will show a URL like https://xxxx.up.railway.app
+    • Copy it. No trailing slash. This is YOUR_RAILWAY_BACKEND_URL. Save it.
+
+  DEPLOY: Railway usually auto-deploys on push. If not, trigger a deploy. Ensure the backend service builds and runs (Root Directory = backend; start command from railway.json/Procfile: node server.js).
+
+
+STEP 7. Add Shopify App service on Railway
+--------------------------------------------------------------------------------
+  WHERE:  Same Railway project → Add Service (or "New" → "GitHub Repo" again from same repo).
+
+  DO:
+    • Add a second service from the SAME GitHub repo.
+    • Set Root Directory to  shopify-app  (so this service runs from shopify-app folder).
+
+  ADD VARIABLES (this service → Variables):
+
+    DATABASE_URL        = [Same Supabase URI as Step 6]
+    SHOPIFY_API_KEY     = [Same as Step 6]
+    SHOPIFY_API_SECRET  = [Same as Step 6]
+    APP_URL             = [This service’s public URL — see below]
+    SCOPES              = read_products,write_script_tags,read_orders,write_themes,read_themes
+    FRONTEND_URL        = [Optional; same as you will set on Vercel, or leave blank until Step 9]
+
+  SET APP_URL:
+    • Go to this service’s Settings → Domains. Create or copy the public URL (e.g. https://yyyy.up.railway.app).
+    • Paste that URL (no trailing slash) as the value of APP_URL in Variables. Save.
+
+  Copy this service’s URL. This is YOUR_RAILWAY_SHOPIFY_APP_URL. Save it.
+
+  DEPLOY: Ensure this service deploys (start command from railway.json: npm run start). Both Railway services must be running.
+
+
+================================================================================
+PHASE 4 — EDIT REPO FILES AND PUSH (so deploys use correct URLs)
+================================================================================
+
+STEP 8. Edit the two config files in the repo, then push to GitHub
+--------------------------------------------------------------------------------
+  You must replace placeholders with your real backend URL and shopify-app URL so that Shopify and the theme extension point to the right places.
+
+  FILE 1 — shopify-app/shopify.app.toml
+  Location in repo:  overlay-studio/shopify-app/shopify.app.toml
+
+  Open in editor. Replace:
+
+    client_id = "YOUR_CLIENT_ID"
+  with your real Shopify Client ID (from Step 3), e.g.:
+    client_id = "abc123yourrealclientid"
+
+    application_url = "https://YOUR-RAILWAY-REMIX-SERVICE.up.railway.app"
+  with your Shopify app service URL (YOUR_RAILWAY_SHOPIFY_APP_URL from Step 7), e.g.:
+    application_url = "https://implux-shopify.up.railway.app"
+
+    redirect_urls = [
+      "https://YOUR-RAILWAY-REMIX-SERVICE.../auth/callback",
+      "https://YOUR-RAILWAY-REMIX-SERVICE.../auth/shopify/callback"
+    ]
+  Replace both URLs with your shopify-app URL, e.g.:
+    "https://implux-shopify.up.railway.app/auth/callback"
+    "https://implux-shopify.up.railway.app/auth/shopify/callback"
+
+    uri = "https://YOUR-RAILWAY-BACKEND.../proxy/conversion"   (under orders/create)
+  with your backend URL:
+    uri = "https://implux-backend.up.railway.app/proxy/conversion"
+
+    uri = "https://YOUR-RAILWAY-REMIX-SERVICE.../webhooks/app/uninstalled"
+  with your shopify-app URL:
+    uri = "https://implux-shopify.up.railway.app/webhooks/app/uninstalled"
+
+  FILE 2 — shopify-app/extensions/overlay-engine/assets/overlay-engine.js
+  Location in repo:  overlay-studio/shopify-app/extensions/overlay-engine/assets/overlay-engine.js
+
+  Find the line (near the top):
+    var PROXY_URL = 'https://YOUR-RAILWAY-BACKEND.up.railway.app/proxy';
+  Replace with your backend URL, keeping /proxy at the end, e.g.:
+    var PROXY_URL = 'https://implux-backend.up.railway.app/proxy';
+
+  PUSH TO GITHUB:
+    git add shopify-app/shopify.app.toml shopify-app/extensions/overlay-engine/assets/overlay-engine.js
+    git commit -m "Configure production URLs for Shopify and overlay engine"
+    git push origin main
+
+  Railway will redeploy the shopify-app service if it is connected to this repo/branch. Backend does not use these files.
+
+
+================================================================================
+PHASE 5 — VERCEL (FRONTEND)
+================================================================================
+
+STEP 9. Deploy frontend to Vercel
+--------------------------------------------------------------------------------
+  WHERE:  https://vercel.com → Add New Project → Import Git Repository
+
+  DO:
+    • Select the same GitHub repo you use for Railway.
+    • Project name: e.g. implux-dashboard.
+    • IMPORTANT: Set Root Directory to  frontend  (so Vercel builds only the frontend folder). Click Edit next to Root Directory → enter  frontend → Save.
+    • Before deploying, add Environment Variable:
+        Name:  VITE_API_URL
+        Value: [YOUR_RAILWAY_BACKEND_URL from Step 6, no trailing slash]
+      Example: https://implux-backend.up.railway.app
+    • Deploy. Vercel will build (npm run build) and give you a URL like https://implux-dashboard.vercel.app. That is YOUR_VERCEL_FRONTEND_URL.
+
+  OPTIONAL: Go back to Railway → Backend service → Variables. Set FRONTEND_URL to your Vercel URL (for CORS and redirects). Redeploy backend if needed.
+
+
+================================================================================
+PHASE 6 — SHOPIFY PARTNER DASHBOARD
+================================================================================
+
+STEP 10. Set App URL and redirect URLs in Shopify Partner
+--------------------------------------------------------------------------------
+  WHERE:  https://partners.shopify.com → Apps → [Your app from Step 3] → Configuration
+
+  DO:
+    • App URL: paste YOUR_RAILWAY_SHOPIFY_APP_URL (from Step 7). No trailing slash. Example: https://implux-shopify.up.railway.app
+    • Allowed redirection URL(s): add these two exactly:
+        1) https://[your-shopify-app-url]/auth/callback
+        2) https://[your-shopify-app-url]/auth/shopify/callback
+      Example: https://implux-shopify.up.railway.app/auth/callback and .../auth/shopify/callback
+    • Save.
+
+  This must match what you put in shopify.app.toml (Step 8).
+
+
+================================================================================
+PHASE 7 — DATABASE MIGRATIONS AND SEED
+================================================================================
+
+STEP 11. Run backend migrations and seed
+--------------------------------------------------------------------------------
+  WHERE:  Your machine, in the project folder.
+
+  DO:
+    cd backend
+    npm install
+    npm run db:migrate
+    npm run db:seed
+
+  You must set DATABASE_URL for this to work. Either:
+    • Create backend/.env with DATABASE_URL="[your Supabase URI]" (and optionally other vars), then run the commands above,
+    • Or run the commands in a terminal where DATABASE_URL is set (e.g. export DATABASE_URL="..." on Mac/Linux, or set in PowerShell).
+
+  This creates tables (User, Merchant, Campaign, etc.) and seeds the default admin user (see backend docs for login).
+
+  FILES: backend/.env (local only; do not commit). Prisma schema and migrations are in backend/prisma/.
+
+
+STEP 12. Run Shopify app (Session) migrations
+--------------------------------------------------------------------------------
+  WHERE:  Your machine.
+
+  DO:
+    cd shopify-app
+    npm install
+    npx prisma generate
+    npx prisma migrate deploy
+
+  DATABASE_URL must point to the SAME Supabase database. Set it in shopify-app/.env (local) or ensure the Railway shopify-app service already has DATABASE_URL (it does from Step 7). Running migrate deploy locally uses your local .env; the Session table will then exist for production too.
+
+
+================================================================================
+PHASE 8 — SHOPIFY THEME EXTENSION (APP EMBED)
+================================================================================
+
+STEP 13. Deploy theme extension with Shopify CLI
+--------------------------------------------------------------------------------
+  WHERE:  Your machine. Requires Shopify CLI: npm install -g @shopify/cli @shopify/app
+
+  DO:
+    cd shopify-app
+    shopify app config link   (if not already linked — select your Partner app)
+    shopify app deploy
+
+  This deploys the theme app extension (overlay-engine) to Shopify so merchants can enable the app embed in their theme. The extension code (including PROXY_URL) is in the repo and was already updated in Step 8.
+
+  WHEN TO PUSH: Step 8 is already done; no new push needed for this step. Deploy uses the linked app and the code in your repo (and the PROXY_URL you set in overlay-engine.js).
+
+
+================================================================================
+PHASE 9 — VERIFY AND ADD CLIENTS
+================================================================================
+
+STEP 14. Verify and add merchants (clients)
+--------------------------------------------------------------------------------
+  • Log in to your frontend (Vercel URL) with the seeded admin user (see backend seed or docs).
+  • In Shopify Partner, install your app on a development store to test.
+  • In the Implux dashboard, go to Merchants → Add Merchant: store name, Shopify domain (*.myshopify.com), access token (from Session after install, or your app’s storage). Create a campaign and publish; enable the app embed in the store’s theme so the overlay appears.
+
+  No new pushes or env edits required for adding clients; use the dashboard and Shopify app install flow.
+
+
+================================================================================
+QUICK REFERENCE — WHAT TO ENTER WHERE
+================================================================================
+
+  SUPABASE (Step 1)
+    You create: project, database password.
+    You copy: DATABASE_URL (URI with password, ?sslmode=require).
+    You enter it: Railway backend (Step 6), Railway shopify-app (Step 7), backend/.env, shopify-app/.env.
+
+  GITHUB (Step 5, Step 8)
+    Step 5: First push — entire repo (no .env). Railway and Vercel connect to this repo.
+    Step 8: Second push — after editing shopify-app/shopify.app.toml and shopify-app/extensions/overlay-engine/assets/overlay-engine.js.
+
+  RAILWAY BACKEND (Step 6)
+    Root Directory: backend
+    Variables: DATABASE_URL, JWT_SECRET, FRONTEND_URL, SHOPIFY_API_KEY, SHOPIFY_API_SECRET, PROXY_HMAC_SECRET, RAKUTEN_* (optional).
+    You get: Backend URL → use in Vercel (VITE_API_URL), shopify.app.toml (webhook orders/create), overlay-engine.js (PROXY_URL).
+
+  RAILWAY SHOPIFY APP (Step 7)
+    Root Directory: shopify-app
+    Variables: DATABASE_URL, SHOPIFY_API_KEY, SHOPIFY_API_SECRET, APP_URL (this service’s URL), SCOPES, optionally FRONTEND_URL.
+    You get: Shopify app URL → use in shopify.app.toml, Shopify Partner (App URL and redirect URLs).
+
+  VERCEL (Step 9)
+    Root Directory: frontend
+    Environment variable: VITE_API_URL = [Backend URL, no trailing slash].
+
+  SHOPIFY PARTNER (Step 10)
+    App URL = [Shopify app URL]
+    Allowed redirection URL(s) = [shopify-app-url]/auth/callback and [shopify-app-url]/auth/shopify/callback.
+
+  FILES IN REPO (Step 8)
+    shopify-app/shopify.app.toml           → client_id, application_url, redirect_urls, webhook URIs.
+    shopify-app/extensions/overlay-engine/assets/overlay-engine.js → PROXY_URL = backend URL + '/proxy'.
+
+================================================================================
+END OF BUILD STEPS
+================================================================================
