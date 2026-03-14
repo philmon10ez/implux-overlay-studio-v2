@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node node_modules/@remix-run/dev/dist/cli.js vite:build",
+    "build": "node node_modules/prisma/build/index.js generate && node node_modules/@remix-run/dev/dist/cli.js vite:build",
     "dev": "shopify app dev",
     "start": "node node_modules/@remix-run/serve/dist/cli.js ./build/server/index.js",
     "deploy": "shopify app deploy",
