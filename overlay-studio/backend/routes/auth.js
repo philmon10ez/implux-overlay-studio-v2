@@ -17,16 +17,25 @@ const COOKIE_OPTIONS = {
   path: '/',
 };
 
-// POST /api/auth/login
+// POST /api/auth/login — accept username or email
 router.post('/login', async (req, res, next) => {
   try {
-    const { email, password } = req.body ?? {};
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password required' });
+    const { username, email, password } = req.body ?? {};
+    const loginId = username ?? email;
+    if (!loginId || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
     }
-    const user = await prisma.user.findUnique({ where: { email: String(email).toLowerCase() } });
+    const id = String(loginId).trim().toLowerCase();
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: { equals: id, mode: 'insensitive' } },
+          { email: id },
+        ],
+      },
+    });
     if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: 'Invalid username or password' });
     }
     const match = await bcrypt.compare(String(password), user.password);
     if (!match) {
@@ -62,7 +71,7 @@ router.get('/me', async (req, res, next) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, email: true, role: true, createdAt: true },
+      select: { id: true, username: true, email: true, role: true, createdAt: true },
     });
     if (!user) return res.status(401).json({ error: 'User not found' });
     res.json({ user });

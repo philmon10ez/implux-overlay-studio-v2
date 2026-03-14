@@ -4,7 +4,7 @@ import api from '../lib/api';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,7 +14,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     api.auth
-      .login(email, password)
+      .login(username, password)
       .then(() => navigate('/dashboard', { replace: true }))
       .catch((err) => {
         setError(err.body?.error || err.message || 'Login failed');
@@ -33,14 +33,15 @@ export default function Login() {
               <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
             )}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                Username
               </label>
               <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                type="text"
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
@@ -52,6 +53,7 @@ export default function Login() {
               <input
                 id="password"
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

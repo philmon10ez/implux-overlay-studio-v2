@@ -8,15 +8,16 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: 'admin@implux.io' },
-    update: {},
+    update: { username: 'admin' },
     create: {
+      username: 'admin',
       email: 'admin@implux.io',
       password: hashedPassword,
       role: 'admin',
     },
   });
 
-  console.log('Seed completed: admin user created (admin@implux.io)');
+  console.log('Seed completed: admin user created (username: admin, email: admin@implux.io)');
 }
 
 main()
