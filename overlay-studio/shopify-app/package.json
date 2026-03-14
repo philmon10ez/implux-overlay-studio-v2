@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node node_modules/@remix-run/dev/dist/cli.js vite:build",
     "dev": "shopify app dev",
-    "start": "remix-serve ./build/server/index.js",
+    "start": "node node_modules/@remix-run/serve/dist/cli.js ./build/server/index.js",
     "deploy": "shopify app deploy",
     "generate": "shopify app generate",
     "prisma": "prisma",
