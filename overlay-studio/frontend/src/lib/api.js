@@ -16,10 +16,11 @@ export async function api(path, options = {}) {
   if (!res.ok) {
     const err = new Error(res.statusText || 'Request failed');
     err.status = res.status;
+    const text = await res.text();
     try {
-      err.body = await res.json();
+      err.body = text ? JSON.parse(text) : text;
     } catch {
-      err.body = await res.text();
+      err.body = text;
     }
     throw err;
   }
