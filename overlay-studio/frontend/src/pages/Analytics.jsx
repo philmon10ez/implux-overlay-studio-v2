@@ -11,7 +11,7 @@ import {
   Bar,
   Legend,
 } from 'recharts';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import StatCard from '../components/StatCard';
 import DataTable from '../components/DataTable';
 

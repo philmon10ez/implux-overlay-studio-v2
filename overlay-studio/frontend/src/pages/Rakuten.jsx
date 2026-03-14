@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import DataTable from '../components/DataTable';
 
 export default function Rakuten() {

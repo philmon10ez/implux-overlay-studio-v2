@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
+import api from '../lib/api';
 
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: '📊' },

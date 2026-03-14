@@ -69,3 +69,6 @@ export const rakuten = {
   sync: () => api('/api/rakuten/sync', { method: 'POST' }),
   credentials: () => api('/api/rakuten/credentials'),
 };
+
+/** Single object for api.auth.me(), api.merchants.list(), etc. */
+export default { api, auth, merchants, campaigns, analytics, rakuten };

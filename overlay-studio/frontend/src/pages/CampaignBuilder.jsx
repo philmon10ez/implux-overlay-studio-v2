@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import OverlayPreview from '../components/OverlayPreview';
 
 const STEPS = ['Setup', 'Trigger Rules', 'Designer', 'Promo Code', 'Review'];
