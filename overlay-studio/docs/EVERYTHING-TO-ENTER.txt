@@ -63,6 +63,7 @@ Deploy backend and shopify-app to Railway (from repo root dirs backend + shopify
 Then copy the public URLs Railway gives you:
 
   [YOUR_RAILWAY_BACKEND_URL]    e.g. https://overlay-studio-backend.up.railway.app
+                                Production custom domain: https://api.implux.io (see docs/HOST-AT-ADMIN-IMPLUX-IO.txt)
   [YOUR_RAILWAY_SHOPIFY_APP_URL] e.g. https://overlay-studio-shopify.up.railway.app
 
 No trailing slash on either.
@@ -73,6 +74,7 @@ No trailing slash on either.
 Deploy frontend (root: frontend) to Vercel. Then:
 
   [YOUR_VERCEL_FRONTEND_URL]    e.g. https://overlay-studio.vercel.app
+                               Production custom domain: https://admin.implux.io (see docs/HOST-AT-ADMIN-IMPLUX-IO.txt)
 
 No trailing slash.
 
@@ -102,7 +104,7 @@ Follow 8A–8F below. Each tells you the EXACT place (dashboard, tab, or file) t
 
   DATABASE_URL        → [Full Supabase URI from section 1]
   JWT_SECRET          → [From section 2]
-  FRONTEND_URL        → [YOUR_VERCEL_FRONTEND_URL from section 6]
+  FRONTEND_URL        → [YOUR_VERCEL_FRONTEND_URL from section 6; production: https://admin.implux.io]
   SHOPIFY_API_KEY     → [SHOPIFY_CLIENT_ID from section 3]
   SHOPIFY_API_SECRET  → [SHOPIFY_CLIENT_SECRET from section 3]
   PROXY_HMAC_SECRET   → [From section 2]
@@ -136,7 +138,7 @@ Follow 8A–8F below. Each tells you the EXACT place (dashboard, tab, or file) t
 --------------------------------------------------------------------------------
   WHERE:  vercel.com → Your Project (root directory must be "frontend")
   THEN:   Settings → Environment Variables (left sidebar)
-  HOW:    Add New → Name: VITE_API_URL, Value: [YOUR_RAILWAY_BACKEND_URL from 8A. No trailing slash.]
+  HOW:    Add New → Name: VITE_API_URL, Value: [YOUR_RAILWAY_BACKEND_URL from 8A. Production: https://api.implux.io. No trailing slash.]
 
   Save. If the app is already deployed, trigger a redeploy so the variable is used.
 

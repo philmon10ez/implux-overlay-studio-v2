@@ -1,0 +1,85 @@
+================================================================================
+HOST THE GUI AT https://admin.implux.io — CHECKLIST
+================================================================================
+Goal: Your business partner (and you) see the dashboard at https://admin.implux.io.
+      The API runs at https://api.implux.io (same backend, different domain).
+
+================================================================================
+1. DNS (WHERE YOU MANAGE implux.io)
+================================================================================
+Add two records (at your domain registrar or DNS provider, e.g. Cloudflare, Namecheap):
+
+  A or CNAME   admin.implux.io   →  Vercel (see step 2 for exact target)
+  A or CNAME   api.implux.io     →  Railway (see step 3 for exact target)
+
+Vercel and Railway will show you the exact CNAME or A record to add when you add the custom domain.
+
+================================================================================
+2. VERCEL — CUSTOM DOMAIN FOR FRONTEND (GUI)
+================================================================================
+  WHERE:  vercel.com → Your frontend project (implux-overlay-studio) → Settings → Domains
+
+  DO:
+    • Click "Add" and enter:  admin.implux.io
+    • Save. Vercel will show you what to add in DNS (e.g. CNAME admin.implux.io → cname.vercel-dns.com).
+    • In your DNS (step 1), add the record Vercel shows. Wait for SSL to be ready (few minutes).
+
+  ENVIRONMENT VARIABLE (Settings → Environment Variables):
+    Name:   VITE_API_URL
+    Value:  https://api.implux.io
+    (No trailing slash. This makes the frontend call the API at api.implux.io.)
+
+  Redeploy the frontend after adding the domain and env var so the new build uses VITE_API_URL.
+
+  RESULT: Opening https://admin.implux.io will show the Implux dashboard (GUI).
+
+================================================================================
+3. RAILWAY — CUSTOM DOMAIN FOR BACKEND (API)
+================================================================================
+  WHERE:  railway.app → Your project → Backend service (implux-overlay-studio) → Settings → Domains
+
+  DO:
+    • Add custom domain:  api.implux.io
+    • Railway will show you the CNAME or A record. Add it in your DNS (step 1).
+    • Wait for the domain to show as active.
+
+  VARIABLES (Variables tab):
+    FRONTEND_URL  =  https://admin.implux.io
+    (So CORS allows the frontend at admin.implux.io to call this backend.)
+
+  Redeploy the backend after setting FRONTEND_URL if it was different before.
+
+  RESULT: The API is available at https://api.implux.io (e.g. https://api.implux.io/health).
+
+================================================================================
+4. REMOVE admin.implux.io FROM RAILWAY (IF IT WAS THERE)
+================================================================================
+  If you previously had admin.implux.io pointing to the Railway backend, remove that custom domain from the Railway backend service. The backend should only be at api.implux.io so that admin.implux.io can point to Vercel (the GUI).
+
+================================================================================
+5. QUICK REFERENCE — WHERE EACH URL IS SET
+================================================================================
+  Vercel (frontend project):
+    VITE_API_URL = https://api.implux.io
+
+  Railway — Backend service:
+    FRONTEND_URL = https://admin.implux.io
+
+  Railway — Shopify app service (optional):
+    FRONTEND_URL = https://admin.implux.io   (for "Open Dashboard" link)
+
+  Shopify Partner Dashboard:
+    App URL and redirect URLs stay as your Railway Shopify app URL (e.g. stunning-friendship...up.railway.app). No change for admin.implux.io.
+
+  Theme extension overlay-engine.js PROXY_URL:
+    Use https://api.implux.io/proxy (your backend API URL + /proxy).
+
+================================================================================
+6. AFTER CHANGES — PUSH AND REDEPLOY
+================================================================================
+  • Commit and push your repo (the .env.example and doc updates are already in the repo).
+  • Vercel will redeploy on push. Ensure VITE_API_URL = https://api.implux.io in Vercel.
+  • Railway will redeploy on push (if connected to GitHub). Ensure FRONTEND_URL = https://admin.implux.io on the backend.
+  • Open https://admin.implux.io and log in with username admin / password admin123.
+
+================================================================================

@@ -238,11 +238,11 @@ STEP 9. Deploy frontend to Vercel
     • IMPORTANT: Set Root Directory to  frontend  (so Vercel builds only the frontend folder). Click Edit next to Root Directory → enter  frontend → Save.
     • Before deploying, add Environment Variable:
         Name:  VITE_API_URL
-        Value: [YOUR_RAILWAY_BACKEND_URL from Step 6, no trailing slash]
-      Example: https://implux-backend.up.railway.app
+        Value: [YOUR_RAILWAY_BACKEND_URL from Step 6, no trailing slash. Production: https://api.implux.io]
+      Example: https://api.implux.io or https://implux-backend.up.railway.app
     • Deploy. Vercel will build (npm run build) and give you a URL like https://implux-dashboard.vercel.app. That is YOUR_VERCEL_FRONTEND_URL.
 
-  OPTIONAL: Go back to Railway → Backend service → Variables. Set FRONTEND_URL to your Vercel URL (for CORS and redirects). Redeploy backend if needed.
+  OPTIONAL: Go back to Railway → Backend service → Variables. Set FRONTEND_URL to your Vercel URL (for CORS). Production: https://admin.implux.io. See docs/HOST-AT-ADMIN-IMPLUX-IO.txt to host GUI at admin.implux.io. Redeploy backend if needed.
 
 
 ================================================================================

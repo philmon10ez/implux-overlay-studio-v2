@@ -1,7 +1,7 @@
 (function() {
   if (typeof Shopify === 'undefined' || !Shopify.shop) return;
   var shop = Shopify.shop;
-  var PROXY_URL = 'https://YOUR-RAILWAY-BACKEND.up.railway.app/proxy';
+  var PROXY_URL = 'https://api.implux.io/proxy';
 
   fetch(PROXY_URL + '/campaigns?shop=' + encodeURIComponent(shop))
     .then(function(r) { return r.json(); })
