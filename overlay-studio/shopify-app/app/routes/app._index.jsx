@@ -13,7 +13,14 @@ export const loader = async ({ request }) => {
   // Sync this shop to Implux backend when the app is opened (covers installs that missed afterAuth or reinstall)
   const backendUrl = (process.env.IMPLUX_BACKEND_URL || process.env.BACKEND_API_URL || '').replace(/\/$/, '');
   const syncSecret = process.env.MERCHANT_SYNC_SECRET;
-  if (backendUrl && syncSecret && shop && session?.accessToken) {
+  let accessToken = session?.accessToken;
+  if (!accessToken && shop) {
+    const dbSession = await prisma.session.findFirst({
+      where: { shop: shop.replace(/^https?:\/\//, '').replace(/\/$/, '') },
+    });
+    accessToken = dbSession?.accessToken || null;
+  }
+  if (backendUrl && syncSecret && shop && accessToken) {
     try {
       const shopNormalized = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
       const res = await fetch(`${backendUrl}/api/shopify/sync-merchant`, {
@@ -24,7 +31,7 @@ export const loader = async ({ request }) => {
         },
         body: JSON.stringify({
           shop: shopNormalized,
-          accessToken: session.accessToken,
+          accessToken,
           storeName: shopNormalized.replace('.myshopify.com', '').replace(/-/g, ' '),
         }),
       });
@@ -36,6 +43,8 @@ export const loader = async ({ request }) => {
     } catch (e) {
       console.warn('[Implux] Merchant sync on app load error:', e?.message);
     }
+  } else if (shop && (backendUrl && syncSecret)) {
+    console.warn('[Implux] Merchant sync on app load skipped (no token):', { shop, hasBackendUrl: !!backendUrl, hasSyncSecret: !!syncSecret, hasToken: !!accessToken });
   }
 
   let activeCampaignCount = 0;

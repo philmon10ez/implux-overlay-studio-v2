@@ -14,6 +14,7 @@ import campaignsRoutes from './routes/campaigns.js';
 import analyticsRoutes from './routes/analytics.js';
 import rakutenRoutes from './routes/rakuten.js';
 import proxyRoutes from './routes/proxy.js';
+import shopifySyncRoutes from './routes/shopifySync.js';
 import { syncTransactions } from './services/rakutenService.js';
 
 const app = express();
@@ -43,6 +44,7 @@ app.use('/api/merchants', merchantsRoutes);
 app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/rakuten', rakutenRoutes);
+app.use('/api/shopify', shopifySyncRoutes);
 
 // App proxy — capture raw body for webhook HMAC, then HMAC verified (no JWT)
 app.use(
