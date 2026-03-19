@@ -10,6 +10,34 @@ export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session?.shop || '';
 
+  // Sync this shop to Implux backend when the app is opened (covers installs that missed afterAuth or reinstall)
+  const backendUrl = (process.env.IMPLUX_BACKEND_URL || process.env.BACKEND_API_URL || '').replace(/\/$/, '');
+  const syncSecret = process.env.MERCHANT_SYNC_SECRET;
+  if (backendUrl && syncSecret && shop && session?.accessToken) {
+    try {
+      const shopNormalized = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
+      const res = await fetch(`${backendUrl}/api/shopify/sync-merchant`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-implux-merchant-sync-secret': syncSecret,
+        },
+        body: JSON.stringify({
+          shop: shopNormalized,
+          accessToken: session.accessToken,
+          storeName: shopNormalized.replace('.myshopify.com', '').replace(/-/g, ' '),
+        }),
+      });
+      if (res.ok) {
+        console.log('[Implux] Merchant sync on app load OK for', shopNormalized);
+      } else {
+        console.warn('[Implux] Merchant sync on app load failed:', res.status, await res.text());
+      }
+    } catch (e) {
+      console.warn('[Implux] Merchant sync on app load error:', e?.message);
+    }
+  }
+
   let activeCampaignCount = 0;
   if (shop) {
     const normalized = shop.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
@@ -49,8 +77,8 @@ export default function AppIndex() {
                 <Text as="p" variant="bodyMd">
                   Active campaigns for this shop: <strong>{activeCampaignCount}</strong>
                 </Text>
-                <Button url={frontendUrl} variant="primary" external>
-                  Open Implux Dashboard
+                <Button url={`${frontendUrl.replace(/\/$/, '')}/campaigns`} variant="primary" external>
+                  Open Campaigns (admin.implux.io)
                 </Button>
               </BlockStack>
             </Card>
