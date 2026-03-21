@@ -1,0 +1,3 @@
+# Railway / Nixpacks: use Node 20+ (Web Crypto global expected by Shopify API)
+[variables]
+NODE_VERSION = "20"

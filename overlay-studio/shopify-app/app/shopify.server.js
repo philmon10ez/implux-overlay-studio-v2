@@ -1,3 +1,4 @@
+import './crypto-polyfill.server.js';
 import '@shopify/shopify-app-remix/adapters/node';
 import { ApiVersion, shopifyApp } from '@shopify/shopify-app-remix/server';
 import { PrismaSessionStorage } from '@shopify/shopify-app-session-storage-prisma';
