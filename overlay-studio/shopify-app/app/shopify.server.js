@@ -12,6 +12,12 @@ const shopify = shopifyApp({
   appUrl: process.env.APP_URL || process.env.SHOPIFY_APP_URL || '',
   authPathPrefix: '/auth',
   sessionStorage: new PrismaSessionStorage(prisma),
+  isEmbeddedApp: true,
+  // Avoid legacy OAuth cookie redirects in the admin iframe (fixes oauth_error=same_site_cookies / refresh loops).
+  // Pair with Shopify managed install: https://shopify.dev/docs/apps/auth/installation#shopify-managed-installation
+  future: {
+    unstable_newEmbeddedAuthStrategy: true,
+  },
   hooks: {
     afterAuth: async ({ session, registerWebhooks }) => {
       if (registerWebhooks) await registerWebhooks({ session });
