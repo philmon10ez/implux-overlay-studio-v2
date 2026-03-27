@@ -6,14 +6,14 @@
  */
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
-import hmacVerify from '../middleware/hmacVerify.js';
+import optionalProxyHmac from '../middleware/optionalProxyHmac.js';
 import { verifyWebhook } from '../services/shopifyService.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // GET /proxy/campaigns?shop=
-router.get('/campaigns', hmacVerify, async (req, res, next) => {
+router.get('/campaigns', optionalProxyHmac, async (req, res, next) => {
   try {
     const shop = (req.query.shop ?? '').toString().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
     if (!shop) return res.status(400).json({ error: 'shop required' });
@@ -42,7 +42,7 @@ router.get('/campaigns', hmacVerify, async (req, res, next) => {
 });
 
 // GET /proxy/track?event=&campaign_id=&shop=
-router.get('/track', hmacVerify, async (req, res, next) => {
+router.get('/track', optionalProxyHmac, async (req, res, next) => {
   try {
     const event = (req.query.event ?? '').toString().toLowerCase();
     const campaignId = parseInt(req.query.campaign_id, 10);

@@ -21,17 +21,34 @@ const app = express();
 const PORT = process.env.PORT ?? 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-// CORS — allow Vercel frontend
-app.use(
-  cors({
-    origin: FRONTEND_URL,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
+const apiCors = cors({
+  origin: FRONTEND_URL,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+});
+
+/** Storefront overlay fetch() runs on *.myshopify.com and merchant custom domains — must echo Origin. */
+function storefrontCorsOrigin(origin, callback) {
+  if (!origin) return callback(null, true);
+  if (origin === FRONTEND_URL) return callback(null, origin);
+  if (/^https:\/\/.+\.myshopify\.com$/i.test(origin)) return callback(null, origin);
+  if (/^https:\/\//.test(origin)) return callback(null, origin);
+  callback(null, false);
+}
+
+const proxyCors = cors({
+  origin: storefrontCorsOrigin,
+  credentials: false,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Shopify-Hmac-Sha256'],
+});
+
 app.use(cookieParser());
 app.use(express.json());
+
+// CORS: admin API vs public storefront proxy (different allowed origins)
+app.use('/api', apiCors);
 
 // Health (no auth)
 app.get('/health', (_req, res) => {
@@ -46,9 +63,10 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/rakuten', rakutenRoutes);
 app.use('/api/shopify', shopifySyncRoutes);
 
-// App proxy — capture raw body for webhook HMAC, then HMAC verified (no JWT)
+// App proxy — CORS for storefront; capture raw body for webhook HMAC
 app.use(
   '/proxy',
+  proxyCors,
   express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }),
   proxyRoutes
 );
