@@ -276,3 +276,14 @@ Set **App URL** (and allowed redirection URLs) to your Railway Shopify app URL (
 - **Backend** and **Shopify app** share the same PostgreSQL database (`DATABASE_URL`). Use **Supabase** or Railway Postgres; see **Database: Using Supabase** for Supabase setup. Implux.io is the product name.
 - **Frontend** talks to the backend via `VITE_API_URL` (production) or Vite proxy (local).
 - **orders/create** webhook is sent by Shopify to the **backend** `/proxy/conversion` URL configured in `shopify.app.toml`.
+
+---
+
+## Supplemental docs (in `docs/`)
+
+| File | Purpose |
+|------|---------|
+| `DEV-STORE-TEST-GUIDE.md` | Install on a dev store, enable app embed, publish a campaign |
+| `HOST-AT-ADMIN-IMPLUX-IO.txt` | Point `admin.implux.io` (Vercel) vs `api.implux.io` (Railway) in DNS |
+| `MERCHANT-SYNC-VERIFY.md` | Check merchant auto-sync env and `/api/shopify/sync-merchant` |
+| `SHOPIFY-EMBEDDED-COOKIES-FIX.md` | `same_site_cookies` / embedded app refresh loop |

@@ -5,14 +5,31 @@ Goal: Your business partner (and you) see the dashboard at https://admin.implux.
       The API runs at https://api.implux.io (same backend, different domain).
 
 ================================================================================
-1. DNS (WHERE YOU MANAGE implux.io)
+*** WHY YOU SEE "Application failed to respond" ON admin.implux.io ***
 ================================================================================
-Add two records (at your domain registrar or DNS provider, e.g. Cloudflare, Namecheap):
+Right now admin.implux.io points to RAILWAY (your backend). The backend is an API
+server — it does not serve the React GUI. So the browser gets a 502 / "Application
+failed to respond". FRONTEND_URL in Railway only sets CORS; it does NOT change
+where the domain points. You must change DNS so that:
 
-  A or CNAME   admin.implux.io   →  Vercel (see step 2 for exact target)
-  A or CNAME   api.implux.io     →  Railway (see step 3 for exact target)
+  • admin.implux.io  →  points to VERCEL (so the GUI loads)
+  • api.implux.io    →  points to RAILWAY (so the API works)
 
-Vercel and Railway will show you the exact CNAME or A record to add when you add the custom domain.
+Then remove admin.implux.io from Railway's custom domains (step 4) and add
+api.implux.io to Railway instead.
+
+================================================================================
+1. DNS (WHERE YOU MANAGE implux.io) — THIS IS THE FIX
+================================================================================
+At your domain registrar or DNS provider (Cloudflare, Namecheap, etc.):
+
+  • admin.implux.io   →  Point to VERCEL (CNAME to cname.vercel-dns.com or what Vercel shows)
+  • api.implux.io     →  Point to RAILWAY (CNAME or A record Railway gives you)
+
+Until admin.implux.io points to Vercel in DNS, you will keep seeing the Railway
+error page when you open admin.implux.io.
+
+Vercel and Railway will show the exact record when you add each custom domain.
 
 ================================================================================
 2. VERCEL — CUSTOM DOMAIN FOR FRONTEND (GUI)
