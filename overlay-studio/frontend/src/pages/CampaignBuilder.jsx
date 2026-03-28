@@ -55,6 +55,19 @@ const defaultDesign = {
   showCloseButton: true,
   closeDelay: 0,
   animation: 'fade',
+  /** Exit intent: two-step gate → offer */
+  exitTwoStep: true,
+  exitGateHeadline: 'Wait — before you go…',
+  exitGateSubheadline: 'You’re about to leave empty-handed',
+  exitGateBody:
+    'Are you sure? We’ve reserved an exclusive discount if you stay and complete your order.',
+  exitStayCtaText: 'Yes, show me the offer',
+  exitLeaveCtaText: 'No thanks, exit',
+  exitGateStayBgColor: '#6c63ff',
+  exitGateStayTextColor: '#ffffff',
+  exitGateLeaveColor: '#6b7280',
+  exitOfferEyebrow: 'Special offer',
+  exitOfferEyebrowColor: '#6c63ff',
 };
 
 const defaultPromo = {
@@ -243,10 +256,13 @@ export default function CampaignBuilder() {
                     onChange={(e) => setTriggerConfig((t) => ({ ...t, sensitivity: e.target.value }))}
                     className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
                   >
-                    <option value="low">Low</option>
+                    <option value="low">Low (cursor must reach top edge)</option>
                     <option value="medium">Medium</option>
-                    <option value="high">High</option>
+                    <option value="high">High (triggers sooner near top)</option>
                   </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Uses mouse movement toward the top of the page (desktop). Mobile browsers do not support true exit intent; use other campaign types for mobile-only flows if needed.
+                  </p>
                 </div>
               )}
               {type === 'time_delay' && (
@@ -359,6 +375,150 @@ export default function CampaignBuilder() {
         {step === 3 && (
           <div className="flex gap-6">
             <div className="w-[40%] space-y-4">
+              {type === 'exit_intent' && (
+                <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 space-y-4">
+                  <h3 className="text-sm font-semibold text-gray-900">Exit intent flow</h3>
+                  <p className="text-xs text-gray-600">
+                    Shoppers first see a confirmation step when they move to leave the tab; if they choose to stay, they see your full offer below.
+                  </p>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={designConfig.exitTwoStep !== false}
+                      onChange={(e) =>
+                        setDesignConfig((d) => ({ ...d, exitTwoStep: e.target.checked }))
+                      }
+                    />
+                    <span className="text-sm font-medium text-gray-800">Two-step: confirm exit, then show offer</span>
+                  </label>
+                  {designConfig.exitTwoStep !== false && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 uppercase tracking-wide">
+                          Gate — headline
+                        </label>
+                        <input
+                          value={designConfig.exitGateHeadline ?? ''}
+                          onChange={(e) =>
+                            setDesignConfig((d) => ({ ...d, exitGateHeadline: e.target.value }))
+                          }
+                          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 uppercase tracking-wide">
+                          Gate — subheadline
+                        </label>
+                        <input
+                          value={designConfig.exitGateSubheadline ?? ''}
+                          onChange={(e) =>
+                            setDesignConfig((d) => ({ ...d, exitGateSubheadline: e.target.value }))
+                          }
+                          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 uppercase tracking-wide">
+                          Gate — body
+                        </label>
+                        <textarea
+                          value={designConfig.exitGateBody ?? ''}
+                          onChange={(e) =>
+                            setDesignConfig((d) => ({ ...d, exitGateBody: e.target.value }))
+                          }
+                          rows={3}
+                          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600">Stay — button label</label>
+                          <input
+                            value={designConfig.exitStayCtaText ?? ''}
+                            onChange={(e) =>
+                              setDesignConfig((d) => ({ ...d, exitStayCtaText: e.target.value }))
+                            }
+                            className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600">Leave — button label</label>
+                          <input
+                            value={designConfig.exitLeaveCtaText ?? ''}
+                            onChange={(e) =>
+                              setDesignConfig((d) => ({ ...d, exitLeaveCtaText: e.target.value }))
+                            }
+                            className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-end gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-600">Stay button fill</label>
+                          <input
+                            type="color"
+                            value={designConfig.exitGateStayBgColor || designConfig.ctaBgColor}
+                            onChange={(e) =>
+                              setDesignConfig((d) => ({ ...d, exitGateStayBgColor: e.target.value }))
+                            }
+                            className="mt-1 h-9 w-14 cursor-pointer rounded border"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600">Stay text</label>
+                          <input
+                            type="color"
+                            value={designConfig.exitGateStayTextColor || designConfig.ctaTextColor}
+                            onChange={(e) =>
+                              setDesignConfig((d) => ({ ...d, exitGateStayTextColor: e.target.value }))
+                            }
+                            className="mt-1 h-9 w-14 cursor-pointer rounded border"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600">Leave text color</label>
+                          <input
+                            type="color"
+                            value={designConfig.exitGateLeaveColor ?? '#6b7280'}
+                            onChange={(e) =>
+                              setDesignConfig((d) => ({ ...d, exitGateLeaveColor: e.target.value }))
+                            }
+                            className="mt-1 h-9 w-14 cursor-pointer rounded border"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  <div className="border-t border-gray-200 pt-3">
+                    <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                      Offer screen (after they stay)
+                    </h4>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Customize headline, copy, image, and primary CTA below — this is your discount or incentive.
+                    </p>
+                    <div className="mt-2">
+                      <label className="block text-xs font-medium text-gray-600">Eyebrow / label (optional)</label>
+                      <input
+                        value={designConfig.exitOfferEyebrow ?? ''}
+                        onChange={(e) =>
+                          setDesignConfig((d) => ({ ...d, exitOfferEyebrow: e.target.value }))
+                        }
+                        placeholder="e.g. 15% off today only"
+                        className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                      />
+                      <input
+                        type="color"
+                        value={designConfig.exitOfferEyebrowColor ?? '#6c63ff'}
+                        onChange={(e) =>
+                          setDesignConfig((d) => ({ ...d, exitOfferEyebrowColor: e.target.value }))
+                        }
+                        className="mt-2 h-8 w-12 cursor-pointer rounded border"
+                        title="Eyebrow color"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Background</label>
                 <div className="mt-1 flex gap-2">
@@ -611,7 +771,11 @@ export default function CampaignBuilder() {
                   {mobilePreview ? 'Desktop' : 'Mobile'} view
                 </button>
               </div>
-              <OverlayPreview designConfig={designConfig} mobile={mobilePreview} />
+              <OverlayPreview
+                designConfig={designConfig}
+                mobile={mobilePreview}
+                campaignType={type}
+              />
             </div>
           </div>
         )}
@@ -679,7 +843,11 @@ export default function CampaignBuilder() {
             </div>
             <div>
               <p className="mb-2 font-medium">Preview</p>
-              <OverlayPreview designConfig={designConfig} className="max-w-lg" />
+              <OverlayPreview
+                designConfig={designConfig}
+                className="max-w-lg"
+                campaignType={type}
+              />
             </div>
             <div className="flex gap-3">
               <button

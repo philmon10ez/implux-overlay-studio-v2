@@ -1,11 +1,14 @@
+import { useState } from 'react';
+
 /**
  * Live overlay renderer — mirrors overlay-engine structure for preview.
- * designConfig: { background, backgroundOpacity, size, position, headline, headlineSize, headlineBold, headlineColor,
- *   subheadline, subheadlineSize, subheadlineColor, body, bodySize, bodyColor,
- *   ctaText, ctaAction, ctaUrl, ctaBgColor, ctaTextColor, ctaBorderRadius,
- *   secondaryCtaText, imageDataUrl, showCloseButton, closeDelay, animation }
  */
-export default function OverlayPreview({ designConfig = {}, className = '', mobile = false }) {
+export default function OverlayPreview({
+  designConfig = {},
+  className = '',
+  mobile = false,
+  campaignType = '',
+}) {
   const d = designConfig;
   const bg = d.background || '#ffffff';
   const opacity = d.backgroundOpacity ?? 0.95;
@@ -14,6 +17,10 @@ export default function OverlayPreview({ designConfig = {}, className = '', mobi
   const width =
     size === 'full' ? '100%' : size === 'large' ? '90%' : size === 'small' ? '320px' : '480px';
   const anim = d.animation || 'fade';
+
+  const isExitTwoStep =
+    campaignType === 'exit_intent' && d.exitTwoStep !== false;
+  const [exitPreviewPhase, setExitPreviewPhase] = useState('gate');
 
   const positionClasses = {
     center: 'inset-0 m-auto',
@@ -32,6 +39,139 @@ export default function OverlayPreview({ designConfig = {}, className = '', mobi
     none: '',
   }[anim] || 'animate-fadeIn';
 
+  const renderOfferPanel = () => (
+    <>
+      {d.imageDataUrl && (
+        <img
+          src={d.imageDataUrl}
+          alt=""
+          className="mb-4 max-h-32 w-full object-contain"
+        />
+      )}
+      {(d.exitOfferEyebrow || '').trim() ? (
+        <p
+          className="mb-1 text-xs font-semibold uppercase tracking-wide"
+          style={{ color: d.exitOfferEyebrowColor || '#6c63ff' }}
+        >
+          {d.exitOfferEyebrow}
+        </p>
+      ) : null}
+      {d.headline && (
+        <h2
+          className="mb-1 font-bold"
+          style={{
+            fontSize: d.headlineSize || 24,
+            fontWeight: d.headlineBold ? 700 : 600,
+            color: d.headlineColor || '#1f2937',
+          }}
+        >
+          {d.headline}
+        </h2>
+      )}
+      {d.subheadline && (
+        <p
+          className="mb-2"
+          style={{
+            fontSize: d.subheadlineSize || 16,
+            color: d.subheadlineColor || '#6b7280',
+          }}
+        >
+          {d.subheadline}
+        </p>
+      )}
+      {d.body && (
+        <p
+          className="mb-4 text-sm"
+          style={{
+            fontSize: d.bodySize || 14,
+            color: d.bodyColor || '#4b5563',
+          }}
+        >
+          {d.body}
+        </p>
+      )}
+      <div className="mt-auto flex flex-wrap gap-2">
+        {d.ctaText && (
+          <button
+            type="button"
+            className="rounded-lg px-4 py-2 font-medium transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: d.ctaBgColor || '#6c63ff',
+              color: d.ctaTextColor || '#fff',
+              borderRadius: (d.ctaBorderRadius ?? 8) + 'px',
+            }}
+          >
+            {d.ctaText}
+          </button>
+        )}
+        {d.secondaryCtaText && (
+          <button type="button" className="text-sm text-gray-500 underline">
+            {d.secondaryCtaText}
+          </button>
+        )}
+      </div>
+    </>
+  );
+
+  const renderGatePanel = () => (
+    <>
+      {(d.exitGateHeadline || '').trim() ? (
+        <h2
+          className="mb-1 font-bold"
+          style={{
+            fontSize: d.headlineSize || 22,
+            fontWeight: d.headlineBold ? 700 : 600,
+            color: d.headlineColor || '#1f2937',
+          }}
+        >
+          {d.exitGateHeadline}
+        </h2>
+      ) : null}
+      {(d.exitGateSubheadline || '').trim() ? (
+        <p
+          className="mb-2 text-sm"
+          style={{
+            fontSize: (d.subheadlineSize || 16) - 1,
+            color: d.subheadlineColor || '#6b7280',
+          }}
+        >
+          {d.exitGateSubheadline}
+        </p>
+      ) : null}
+      {(d.exitGateBody || '').trim() ? (
+        <p
+          className="mb-4 text-sm"
+          style={{
+            fontSize: d.bodySize || 14,
+            color: d.bodyColor || '#4b5563',
+          }}
+        >
+          {d.exitGateBody}
+        </p>
+      ) : null}
+      <div className="mt-auto flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <button
+          type="button"
+          className="rounded-lg px-4 py-2.5 text-sm font-semibold"
+          style={{
+            backgroundColor: d.exitGateStayBgColor || d.ctaBgColor || '#6c63ff',
+            color: d.exitGateStayTextColor || d.ctaTextColor || '#fff',
+            borderRadius: (d.ctaBorderRadius ?? 8) + 'px',
+          }}
+        >
+          {d.exitStayCtaText || 'Yes, show me the offer'}
+        </button>
+        <button
+          type="button"
+          className="px-2 py-2 text-sm underline decoration-gray-400"
+          style={{ color: d.exitGateLeaveColor || '#6b7280' }}
+        >
+          {d.exitLeaveCtaText || 'No thanks, exit'}
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <div
       className={`relative overflow-hidden rounded-lg bg-gray-200 ${className}`}
@@ -41,7 +181,6 @@ export default function OverlayPreview({ designConfig = {}, className = '', mobi
         maxWidth: '100%',
       }}
     >
-      {/* Mock browser chrome */}
       <div className="flex items-center gap-2 border-b border-gray-300 bg-gray-100 px-3 py-2">
         <div className="flex gap-1.5">
           <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
@@ -52,7 +191,6 @@ export default function OverlayPreview({ designConfig = {}, className = '', mobi
           https://store.myshopify.com
         </div>
       </div>
-      {/* Mock storefront background */}
       <div className="absolute inset-0 top-9 bg-gray-100 p-4">
         <div className="grid grid-cols-3 gap-2">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -60,12 +198,32 @@ export default function OverlayPreview({ designConfig = {}, className = '', mobi
           ))}
         </div>
       </div>
-      {/* Overlay backdrop */}
       <div
         className="absolute inset-0 top-9 flex items-center justify-center bg-black/40"
         style={{ backgroundColor: `rgba(0,0,0,0.4)` }}
       >
-        {/* Overlay panel — same structure as overlay-engine */}
+        {isExitTwoStep && (
+          <div className="absolute right-3 top-12 z-10 flex gap-1 rounded-md border border-gray-300 bg-white p-0.5 text-xs shadow-sm">
+            <button
+              type="button"
+              onClick={() => setExitPreviewPhase('gate')}
+              className={`rounded px-2 py-1 ${
+                exitPreviewPhase === 'gate' ? 'bg-accent text-white' : 'text-gray-600'
+              }`}
+            >
+              Gate
+            </button>
+            <button
+              type="button"
+              onClick={() => setExitPreviewPhase('offer')}
+              className={`rounded px-2 py-1 ${
+                exitPreviewPhase === 'offer' ? 'bg-accent text-white' : 'text-gray-600'
+              }`}
+            >
+              Offer
+            </button>
+          </div>
+        )}
         <div
           className={`absolute flex flex-col rounded-lg p-6 shadow-xl ${pos} ${animationClass}`}
           style={{
@@ -77,70 +235,11 @@ export default function OverlayPreview({ designConfig = {}, className = '', mobi
             overflow: 'auto',
           }}
         >
-          {d.imageDataUrl && (
-            <img
-              src={d.imageDataUrl}
-              alt=""
-              className="mb-4 max-h-32 w-full object-contain"
-            />
+          {isExitTwoStep ? (
+            exitPreviewPhase === 'gate' ? renderGatePanel() : renderOfferPanel()
+          ) : (
+            renderOfferPanel()
           )}
-          {d.headline && (
-            <h2
-              className="mb-1 font-bold"
-              style={{
-                fontSize: d.headlineSize || 24,
-                fontWeight: d.headlineBold ? 700 : 600,
-                color: d.headlineColor || '#1f2937',
-              }}
-            >
-              {d.headline}
-            </h2>
-          )}
-          {d.subheadline && (
-            <p
-              className="mb-2"
-              style={{
-                fontSize: d.subheadlineSize || 16,
-                color: d.subheadlineColor || '#6b7280',
-              }}
-            >
-              {d.subheadline}
-            </p>
-          )}
-          {d.body && (
-            <p
-              className="mb-4 text-sm"
-              style={{
-                fontSize: d.bodySize || 14,
-                color: d.bodyColor || '#4b5563',
-              }}
-            >
-              {d.body}
-            </p>
-          )}
-          <div className="mt-auto flex flex-wrap gap-2">
-            {d.ctaText && (
-              <button
-                type="button"
-                className="rounded-lg px-4 py-2 font-medium transition-opacity hover:opacity-90"
-                style={{
-                  backgroundColor: d.ctaBgColor || '#6c63ff',
-                  color: d.ctaTextColor || '#fff',
-                  borderRadius: (d.ctaBorderRadius ?? 8) + 'px',
-                }}
-              >
-                {d.ctaText}
-              </button>
-            )}
-            {d.secondaryCtaText && (
-              <button
-                type="button"
-                className="text-sm text-gray-500 underline"
-              >
-                {d.secondaryCtaText}
-              </button>
-            )}
-          </div>
           {d.showCloseButton !== false && (
             <button
               type="button"

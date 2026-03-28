@@ -47,8 +47,9 @@ router.get('/track', optionalProxyHmac, async (req, res, next) => {
     const event = (req.query.event ?? '').toString().toLowerCase();
     const campaignId = parseInt(req.query.campaign_id, 10);
     const shop = (req.query.shop ?? '').toString().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
-    if (!event || !['impression', 'click'].includes(event)) {
-      return res.status(400).json({ error: 'event must be impression or click' });
+    const allowed = ['impression', 'click', 'exit_stay', 'exit_leave'];
+    if (!event || !allowed.includes(event)) {
+      return res.status(400).json({ error: 'invalid event' });
     }
     if (Number.isNaN(campaignId) || campaignId < 1) {
       return res.status(400).json({ error: 'campaign_id required' });
@@ -68,11 +69,14 @@ router.get('/track', optionalProxyHmac, async (req, res, next) => {
         shopDomain: shop,
       },
     });
-    const update = event === 'impression' ? { impressions: { increment: 1 } } : { clicks: { increment: 1 } };
-    await prisma.campaign.update({
-      where: { id: campaignId },
-      data: update,
-    });
+    if (event === 'impression' || event === 'click') {
+      const update =
+        event === 'impression' ? { impressions: { increment: 1 } } : { clicks: { increment: 1 } };
+      await prisma.campaign.update({
+        where: { id: campaignId },
+        data: update,
+      });
+    }
     res.json({ ok: true });
   } catch (err) {
     next(err);
