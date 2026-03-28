@@ -21,6 +21,12 @@
       .replace(/-/g, '_') === 'scroll_depth';
   }
 
+  function isWelcomeMatType(t) {
+    return String(t || '')
+      .toLowerCase()
+      .replace(/-/g, '_') === 'welcome_mat';
+  }
+
   function sortCampaignsNewestFirst(arr) {
     arr.sort(function(a, b) {
       var ta = a.updatedAt ? Date.parse(a.updatedAt) : 0;
@@ -37,18 +43,22 @@
       var campaigns = data.campaigns || [];
       var exitOnes = [];
       var scrollOnes = [];
+      var welcomeOnes = [];
       var others = [];
       for (var i = 0; i < campaigns.length; i++) {
         var c = campaigns[i];
         if (isExitIntentType(c.type)) exitOnes.push(c);
         else if (isScrollDepthType(c.type)) scrollOnes.push(c);
+        else if (isWelcomeMatType(c.type)) welcomeOnes.push(c);
         else others.push(c);
       }
       sortCampaignsNewestFirst(exitOnes);
       sortCampaignsNewestFirst(scrollOnes);
+      sortCampaignsNewestFirst(welcomeOnes);
       for (var j = 0; j < others.length; j++) initCampaign(others[j]);
       if (exitOnes.length) initCampaign(exitOnes[0]);
       if (scrollOnes.length) initCampaign(scrollOnes[0]);
+      if (welcomeOnes.length) initCampaign(welcomeOnes[0]);
     })
     .catch(function() {});
 
@@ -73,6 +83,14 @@
       setTimeout(function() { checkCartAndShow(campaign); }, sec * 1000);
     } else if (isScrollDepthType(type)) {
       registerScrollTrigger(campaign);
+    } else if (isWelcomeMatType(type)) {
+      var wtc = campaign.triggerConfig || {};
+      var wdelay = wtc.welcomeMatDelayMs != null ? Number(wtc.welcomeMatDelayMs) : 0;
+      if (wdelay < 0 || isNaN(wdelay)) wdelay = 0;
+      if (wdelay > 60000) wdelay = 60000;
+      setTimeout(function() {
+        checkCartAndShow(campaign);
+      }, wdelay);
     } else {
       checkCartAndShow(campaign);
     }
@@ -209,6 +227,15 @@
     var config = normalizeDesignConfig(designConfig, campaign.promoCode, campaign.type);
     var overlay = buildOverlayDOM(config, campaign);
     document.body.appendChild(overlay);
+    if (isWelcomeMatType(campaign.type)) {
+      overlay._osBodyOverflow = document.body.style.overflow || '';
+      document.body.style.overflow = 'hidden';
+      var nativeRemove = HTMLElement.prototype.remove;
+      overlay.remove = function() {
+        document.body.style.overflow = overlay._osBodyOverflow || '';
+        nativeRemove.call(overlay);
+      };
+    }
     requestAnimationFrame(function() { overlay.classList.add('os-visible'); });
 
     navigator.sendBeacon(PROXY_URL + '/track?event=impression&campaign_id=' + id + '&shop=' + encodeURIComponent(shop));
@@ -250,7 +277,11 @@
       exitGateStayTextColor: d.exitGateStayTextColor || d.ctaTextColor || '#ffffff',
       exitGateLeaveColor: d.exitGateLeaveColor || '#6b7280',
       offerEyebrow: (d.exitOfferEyebrow || '').trim(),
-      offerEyebrowColor: d.exitOfferEyebrowColor || '#6c63ff'
+      offerEyebrowColor: d.exitOfferEyebrowColor || '#6c63ff',
+      welcomeMatInnerMaxPx:
+        d.welcomeMatInnerMaxPx != null && !isNaN(Number(d.welcomeMatInnerMaxPx))
+          ? Math.min(1200, Math.max(280, Number(d.welcomeMatInnerMaxPx)))
+          : 640
     };
   }
 
@@ -280,6 +311,9 @@
 
   function buildOverlayDOM(config, campaign) {
     var campaignId = campaign.id;
+    if (isWelcomeMatType(campaign.type)) {
+      return buildWelcomeMatOverlay(config, campaign);
+    }
     if (isExitIntentType(campaign.type) && config.exitTwoStep) {
       return buildExitTwoStepOverlay(config, campaign);
     }
@@ -303,6 +337,58 @@
     wireOfferInteractions(wrapper, config, campaignId);
     wrapper.querySelector('.os-close') && wrapper.querySelector('.os-close').addEventListener('click', function() { wrapper.remove(); });
     wrapper.querySelector('.os-backdrop') && wrapper.querySelector('.os-backdrop').addEventListener('click', function() { wrapper.remove(); });
+
+    return wrapper;
+  }
+
+  function buildWelcomeMatOverlay(config, campaign) {
+    var campaignId = campaign.id;
+    var tc = campaign.triggerConfig || {};
+    var backdropDismiss =
+      tc.welcomeMatBackdropDismiss !== false && tc.welcomeMatBackdropDismiss !== 'false';
+    var innerMax = config.welcomeMatInnerMaxPx != null ? config.welcomeMatInnerMaxPx : 640;
+
+    if (!document.getElementById('os-styles')) {
+      var st = document.createElement('style');
+      st.id = 'os-styles';
+      st.textContent = generateCSS();
+      document.head.appendChild(st);
+    }
+
+    var wrapper = document.createElement('div');
+    wrapper.id = 'os-overlay-' + campaignId;
+    wrapper.className = 'os-overlay-wrapper os-welcome-mat';
+    wrapper.innerHTML =
+      '<div class="os-backdrop"></div>' +
+      '<div class="os-box os-welcome-mat-panel" style="background:' +
+      config.bgColor +
+      ';opacity:' +
+      config.bgOpacity +
+      ';">' +
+      (config.closeButton
+        ? '<button type="button" class="os-close" aria-label="Close">&#215;</button>'
+        : '') +
+      '<div class="os-welcome-mat-inner" style="max-width:' +
+      innerMax +
+      'px">' +
+      offerSectionHTML(config) +
+      '</div></div>';
+
+    wireOfferInteractions(wrapper, config, campaignId);
+    wrapper.querySelector('.os-close') &&
+      wrapper.querySelector('.os-close').addEventListener('click', function() {
+        wrapper.remove();
+      });
+    var bd = wrapper.querySelector('.os-backdrop');
+    if (bd) {
+      if (backdropDismiss) {
+        bd.addEventListener('click', function() {
+          wrapper.remove();
+        });
+      } else {
+        bd.style.pointerEvents = 'none';
+      }
+    }
 
     return wrapper;
   }
@@ -429,7 +515,14 @@
       '.os-exit-gate-actions{display:flex;flex-direction:column;gap:12px;margin-top:8px}' +
       '@media(min-width:480px){.os-exit-gate-actions{flex-direction:row;flex-wrap:wrap;align-items:center}}' +
       '.os-exit-leave{background:none;border:0;padding:8px 0;cursor:pointer;font-size:14px;text-decoration:underline;width:100%;text-align:center}' +
-      '@media(min-width:480px){.os-exit-leave{width:auto;text-align:left}}'
+      '@media(min-width:480px){.os-exit-leave{width:auto;text-align:left}}' +
+      '.os-overlay-wrapper.os-welcome-mat{align-items:stretch;justify-content:stretch}' +
+      '.os-welcome-mat .os-backdrop{background:rgba(0,0,0,.42);z-index:0}' +
+      '.os-welcome-mat-panel{position:relative;z-index:1;width:100%;min-height:100vh;height:100%;max-width:none;margin:0;border-radius:0!important;display:flex;flex-direction:column;align-items:center;justify-content:center;box-sizing:border-box;padding:clamp(20px,4vw,56px);overflow-y:auto;box-shadow:none!important}' +
+      '.os-welcome-mat-inner{width:100%;margin:0 auto;text-align:center;flex-shrink:0}' +
+      '.os-welcome-mat-inner .os-headline{font-size:clamp(22px,4vw,36px)!important;line-height:1.2}' +
+      '.os-welcome-mat-inner .os-image{max-height:min(40vh,280px);width:auto;max-width:100%;object-fit:contain;margin-left:auto;margin-right:auto}' +
+      '.os-welcome-mat-inner .os-cta{max-width:min(100%,380px);margin-left:auto;margin-right:auto}'
     );
   }
 

@@ -172,6 +172,56 @@ export default function OverlayPreview({
     </>
   );
 
+  if (campaignType === 'welcome_mat') {
+    const innerPreview = Math.min(320, Math.max(200, (Number(d.welcomeMatInnerMaxPx) || 640) * 0.48));
+    return (
+      <div
+        className={`relative overflow-hidden rounded-lg bg-gray-200 ${className}`}
+        style={{
+          width: mobile ? 375 : 800,
+          height: mobile ? 600 : 500,
+          maxWidth: '100%',
+        }}
+      >
+        <div className="flex items-center gap-2 border-b border-gray-300 bg-gray-100 px-3 py-2">
+          <div className="flex gap-1.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
+            <div className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+            <div className="h-2.5 w-2.5 rounded-full bg-green-400" />
+          </div>
+          <div className="ml-4 flex-1 rounded bg-white px-3 py-1 text-xs text-gray-400">
+            https://store.myshopify.com
+          </div>
+        </div>
+        <div className="absolute inset-0 top-9 flex flex-col">
+          <div className="relative flex-1 overflow-hidden">
+            <div className="absolute inset-0 bg-neutral-800/80" aria-hidden />
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center overflow-y-auto px-4 py-8"
+              style={{ backgroundColor: bg, opacity }}
+            >
+              <div className="relative w-full" style={{ maxWidth: innerPreview }}>
+                {d.showCloseButton !== false && (
+                  <button
+                    type="button"
+                    className="absolute -right-1 -top-1 z-10 rounded-full p-1 text-gray-500 hover:bg-black/5"
+                    aria-label="Close"
+                  >
+                    ×
+                  </button>
+                )}
+                <div className="text-center">{renderOfferPanel()}</div>
+              </div>
+            </div>
+          </div>
+          <p className="shrink-0 bg-gray-900 py-1.5 text-center text-[10px] text-gray-400">
+            Preview scaled — live welcome mat fills the viewport and pauses page scroll
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`relative overflow-hidden rounded-lg bg-gray-200 ${className}`}

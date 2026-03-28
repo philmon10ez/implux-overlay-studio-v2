@@ -31,6 +31,8 @@ const defaultTrigger = {
   scrollShortPageBehavior: 'immediate',
   /** Fire when visitor is already past threshold on load (e.g. return visit mid-page) */
   scrollEvaluateOnLoad: true,
+  welcomeMatDelayMs: 0,
+  welcomeMatBackdropDismiss: true,
 };
 
 const defaultDesign = {
@@ -72,6 +74,8 @@ const defaultDesign = {
   exitGateLeaveColor: '#6b7280',
   exitOfferEyebrow: 'Special offer',
   exitOfferEyebrowColor: '#6c63ff',
+  /** welcome_mat: max width (px) of text block on large screens; panel is still full viewport */
+  welcomeMatInnerMaxPx: 640,
 };
 
 const defaultPromo = {
@@ -370,6 +374,46 @@ export default function CampaignBuilder() {
                   </label>
                 </div>
               )}
+              {type === 'welcome_mat' && (
+                <div className="rounded-lg border border-violet-200 bg-violet-50/70 p-4 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Welcome mat timing</h3>
+                    <p className="mt-1 text-xs text-gray-600 leading-relaxed">
+                      The welcome mat covers the full screen as soon as the visitor lands (after any delay below). Use
+                      it for strong promotions, announcements, or email capture — pair with a clear primary action and
+                      an easy &quot;continue browsing&quot; link in the Designer (secondary CTA).
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Delay before show (ms)</label>
+                    <p className="mt-0.5 text-xs text-gray-500">0 = immediate. Small delays (200–800ms) can feel smoother after paint.</p>
+                    <input
+                      type="number"
+                      min={0}
+                      max={60000}
+                      step={100}
+                      value={triggerConfig.welcomeMatDelayMs ?? 0}
+                      onChange={(e) =>
+                        setTriggerConfig((t) => ({
+                          ...t,
+                          welcomeMatDelayMs: Math.min(60000, Math.max(0, Number(e.target.value) || 0)),
+                        }))
+                      }
+                      className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={triggerConfig.welcomeMatBackdropDismiss !== false}
+                      onChange={(e) =>
+                        setTriggerConfig((t) => ({ ...t, welcomeMatBackdropDismiss: e.target.checked }))
+                      }
+                    />
+                    <span className="text-sm text-gray-800">Allow closing by clicking the dimmed area behind the mat</span>
+                  </label>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Page Targeting</label>
                 <div className="mt-2 space-y-2">
@@ -605,6 +649,34 @@ export default function CampaignBuilder() {
                     Shoppers will only see this after they scroll past your threshold — use headline and body for a
                     contextual offer, product recommendation, or email signup that matches the moment.
                   </p>
+                </div>
+              )}
+              {type === 'welcome_mat' && (
+                <div className="rounded-lg border border-violet-200 bg-violet-50/70 p-4 space-y-3">
+                  <h3 className="text-sm font-semibold text-gray-900">Full-screen welcome mat</h3>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Content below is centered on a full-viewport layer. Use a bold headline, short body, and primary
+                    CTA; set <strong>Secondary CTA (dismiss)</strong> to something like &quot;Continue to site&quot; so
+                    shoppers can leave without friction. Background color and opacity fill the entire screen.
+                  </p>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600">Content max width (px)</label>
+                    <p className="mt-0.5 text-xs text-gray-500">Keeps text readable on wide monitors; the mat still fills the screen.</p>
+                    <input
+                      type="number"
+                      min={280}
+                      max={1200}
+                      step={20}
+                      value={designConfig.welcomeMatInnerMaxPx ?? 640}
+                      onChange={(e) =>
+                        setDesignConfig((d) => ({
+                          ...d,
+                          welcomeMatInnerMaxPx: Math.min(1200, Math.max(280, Number(e.target.value) || 640)),
+                        }))
+                      }
+                      className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
                 </div>
               )}
               <div>
