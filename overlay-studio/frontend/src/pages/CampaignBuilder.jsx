@@ -152,8 +152,22 @@ export default function CampaignBuilder() {
       .finally(() => setLoading(false));
   }, [id, isEdit]);
 
+  const setupComplete = () => {
+    const mid = parseInt(merchantId, 10);
+    return Boolean(type && !Number.isNaN(mid) && mid > 0);
+  };
 
   const next = () => {
+    if (step === 1) {
+      if (!merchantId) {
+        alert('Select a merchant to continue.');
+        return;
+      }
+      if (!type) {
+        alert('Select a campaign type (e.g. Promo Code Banner) to continue.');
+        return;
+      }
+    }
     if (step < 5) setStep(step + 1);
   };
   const prev = () => {
@@ -161,11 +175,16 @@ export default function CampaignBuilder() {
   };
 
   const saveDraft = () => {
+    if (!setupComplete()) {
+      alert('Choose a merchant and campaign type on the Setup step before saving.');
+      setStep(1);
+      return;
+    }
     setSaving(true);
     const payload = {
       name: name || 'Untitled Campaign',
       merchantId: parseInt(merchantId, 10),
-      type: type || 'exit_intent',
+      type,
       triggerConfig,
       designConfig,
       promoCode: promoConfig.code || promoCode || null,
@@ -187,11 +206,16 @@ export default function CampaignBuilder() {
   };
 
   const publish = () => {
+    if (!setupComplete()) {
+      alert('Choose a merchant and campaign type on the Setup step before publishing.');
+      setStep(1);
+      return;
+    }
     setSaving(true);
     const payload = {
       name: name || 'Untitled Campaign',
       merchantId: parseInt(merchantId, 10),
-      type: type || 'exit_intent',
+      type,
       triggerConfig,
       designConfig,
       promoCode: promoConfig.code || promoCode || null,
@@ -267,6 +291,10 @@ export default function CampaignBuilder() {
                       setType(t.id);
                       if (t.id === 'promo_banner') {
                         setShowPromoStep(true);
+                        setTriggerConfig((tr) => ({
+                          ...tr,
+                          persistentBarDelayMs: tr.persistentBarDelayMs ?? 0,
+                        }));
                         setDesignConfig((d) => ({
                           ...d,
                           barEdge: d.barEdge || 'top',
@@ -279,6 +307,10 @@ export default function CampaignBuilder() {
                         }));
                       } else if (t.id === 'sticky_footer') {
                         setShowPromoStep(true);
+                        setTriggerConfig((tr) => ({
+                          ...tr,
+                          persistentBarDelayMs: tr.persistentBarDelayMs ?? 0,
+                        }));
                         setDesignConfig((d) => ({
                           ...d,
                           barEdge: 'bottom',
@@ -305,6 +337,8 @@ export default function CampaignBuilder() {
                         setTriggerConfig((tr) => ({
                           ...tr,
                           spinWheelTrigger: tr.spinWheelTrigger || 'time_delay',
+                          timeDelaySeconds: tr.timeDelaySeconds ?? 5,
+                          scrollDepthPercent: tr.scrollDepthPercent ?? 50,
                         }));
                       }
                     }}
@@ -569,17 +603,38 @@ export default function CampaignBuilder() {
                     </select>
                   </div>
                   {triggerConfig.spinWheelTrigger === 'exit_intent' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Sensitivity</label>
-                      <select
-                        value={triggerConfig.sensitivity}
-                        onChange={(e) => setTriggerConfig((t) => ({ ...t, sensitivity: e.target.value }))}
-                        className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                      >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                      </select>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Sensitivity</label>
+                        <select
+                          value={triggerConfig.sensitivity}
+                          onChange={(e) => setTriggerConfig((t) => ({ ...t, sensitivity: e.target.value }))}
+                          className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Delay on mobile / touch (seconds)</label>
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          Exit intent only works with a mouse on desktop. Phones and tablets use this timer instead.
+                        </p>
+                        <input
+                          type="number"
+                          min={1}
+                          max={120}
+                          value={triggerConfig.timeDelaySeconds ?? 8}
+                          onChange={(e) =>
+                            setTriggerConfig((t) => ({
+                              ...t,
+                              timeDelaySeconds: Math.min(120, Math.max(1, Number(e.target.value) || 8)),
+                            }))
+                          }
+                          className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
+                        />
+                      </div>
                     </div>
                   )}
                   {triggerConfig.spinWheelTrigger === 'time_delay' && (

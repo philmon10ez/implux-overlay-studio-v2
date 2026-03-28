@@ -3,10 +3,55 @@
   var shop = Shopify.shop;
   var PROXY_URL = 'https://api.implux.io/proxy';
 
-  function isExitIntentType(t) {
-    return String(t || '')
+  function normalizeCampaignType(t) {
+    if (t == null || t === '') return '';
+    var s = String(t)
       .toLowerCase()
-      .replace(/-/g, '_') === 'exit_intent';
+      .trim()
+      .replace(/-/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_');
+    if (
+      s === 'promo_code_banner' ||
+      s === 'promocode_banner' ||
+      s === 'promocodebanner' ||
+      s === 'promobanner'
+    )
+      return 'promo_banner';
+    if (
+      s === 'sticky_footer_bar' ||
+      s === 'stickyfooter' ||
+      s === 'sticky_bar' ||
+      s === 'footer_bar' ||
+      s === 'bottom_bar'
+    )
+      return 'sticky_footer';
+    if (
+      s === 'spin_to_win' ||
+      s === 'spin_to_win_wheel' ||
+      s === 'spinwheel' ||
+      s === 'prize_wheel' ||
+      s === 'spin_the_wheel'
+    )
+      return 'spin_wheel';
+    return s;
+  }
+
+  function normalizeSpinWheelTriggerMode(raw) {
+    var m = String(raw || 'time_delay')
+      .toLowerCase()
+      .trim()
+      .replace(/-/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_');
+    if (m === 'time' || m === 'timer' || m === 'time_on_site') m = 'time_delay';
+    if (m === 'scroll' || m === 'scrolldepth') m = 'scroll_depth';
+    if (m === 'exit' || m === 'exitintent') m = 'exit_intent';
+    return m;
+  }
+
+  function isExitIntentType(t) {
+    return normalizeCampaignType(t) === 'exit_intent';
   }
 
   function truthyExitTwoStep(d) {
@@ -16,39 +61,31 @@
   }
 
   function isScrollDepthType(t) {
-    return String(t || '')
-      .toLowerCase()
-      .replace(/-/g, '_') === 'scroll_depth';
+    return normalizeCampaignType(t) === 'scroll_depth';
   }
 
   function isWelcomeMatType(t) {
-    return String(t || '')
-      .toLowerCase()
-      .replace(/-/g, '_') === 'welcome_mat';
+    return normalizeCampaignType(t) === 'welcome_mat';
   }
 
   function isUpsellModalType(t) {
-    return String(t || '')
-      .toLowerCase()
-      .replace(/-/g, '_') === 'upsell_modal';
+    return normalizeCampaignType(t) === 'upsell_modal';
   }
 
   function isPromoBannerType(t) {
-    return String(t || '')
-      .toLowerCase()
-      .replace(/-/g, '_') === 'promo_banner';
+    return normalizeCampaignType(t) === 'promo_banner';
   }
 
   function isStickyFooterType(t) {
-    return String(t || '')
-      .toLowerCase()
-      .replace(/-/g, '_') === 'sticky_footer';
+    return normalizeCampaignType(t) === 'sticky_footer';
   }
 
   function isSpinWheelType(t) {
-    return String(t || '')
-      .toLowerCase()
-      .replace(/-/g, '_') === 'spin_wheel';
+    return normalizeCampaignType(t) === 'spin_wheel';
+  }
+
+  function isTimeDelayType(t) {
+    return normalizeCampaignType(t) === 'time_delay';
   }
 
   var impluxUpsellCartHandlers = [];
@@ -162,7 +199,13 @@
       sortCampaignsNewestFirst(promoBannerOnes);
       sortCampaignsNewestFirst(stickyFooterOnes);
       sortCampaignsNewestFirst(spinWheelOnes);
-      for (var j = 0; j < others.length; j++) initCampaign(others[j]);
+      var suppressTimedDelayPopups =
+        promoBannerOnes.length > 0 || stickyFooterOnes.length > 0 || spinWheelOnes.length > 0;
+      for (var j = 0; j < others.length; j++) {
+        var oth = others[j];
+        if (suppressTimedDelayPopups && isTimeDelayType(oth.type)) continue;
+        initCampaign(oth);
+      }
       if (exitOnes.length) initCampaign(exitOnes[0]);
       if (scrollOnes.length) initCampaign(scrollOnes[0]);
       if (welcomeOnes.length) initCampaign(welcomeOnes[0]);
@@ -174,7 +217,7 @@
     .catch(function() {});
 
   function initCampaign(campaign) {
-    var type = campaign.type;
+    var type = normalizeCampaignType(campaign.type);
     var triggerConfig = campaign.triggerConfig || {};
     var designConfig = campaign.designConfig || {};
     var id = campaign.id;
@@ -194,7 +237,7 @@
 
     if (isExitIntentType(type)) {
       registerExitIntent(campaign);
-    } else if (type === 'time_delay') {
+    } else if (isTimeDelayType(type)) {
       var sec = triggerConfig.timeDelaySeconds != null ? triggerConfig.timeDelaySeconds : (triggerConfig.delaySeconds != null ? triggerConfig.delaySeconds : 5);
       setTimeout(function() { checkCartAndShow(campaign); }, sec * 1000);
     } else if (isScrollDepthType(type)) {
@@ -346,13 +389,24 @@
 
   function registerSpinWheelTrigger(campaign) {
     var tc = campaign.triggerConfig || {};
-    var mode = String(tc.spinWheelTrigger || 'time_delay')
-      .toLowerCase()
-      .replace(/-/g, '_');
+    var mode = normalizeSpinWheelTriggerMode(tc.spinWheelTrigger);
     var showSpin = showSpinWheelOverlay;
 
     if (mode === 'exit_intent') {
-      registerExitIntent(campaign, showSpin);
+      var ua = navigator.userAgent || '';
+      var isCoarsePointer =
+        typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+      var isTouchUa = /Mobi|Android|iPhone|iPad|iPod|Tablet/i.test(ua);
+      if (isTouchUa || isCoarsePointer) {
+        var fallbackSec = tc.timeDelaySeconds != null ? Number(tc.timeDelaySeconds) : 8;
+        if (fallbackSec < 1 || isNaN(fallbackSec)) fallbackSec = 8;
+        if (fallbackSec > 120) fallbackSec = 120;
+        setTimeout(function() {
+          checkCartAndShow(campaign, showSpin);
+        }, fallbackSec * 1000);
+      } else {
+        registerExitIntent(campaign, showSpin);
+      }
     } else if (mode === 'scroll_depth') {
       registerScrollTrigger(campaign, showSpin);
     } else {
@@ -470,6 +524,13 @@
 
     var config = normalizeDesignConfig(designConfig, campaign.promoCode, campaign.type);
     var overlay = buildSpinWheelDOM(config, campaign);
+    overlay._osBodyOverflow = document.body.style.overflow || '';
+    document.body.style.overflow = 'hidden';
+    var nativeSpinRemove = HTMLElement.prototype.remove;
+    overlay.remove = function() {
+      document.body.style.overflow = overlay._osBodyOverflow || '';
+      nativeSpinRemove.call(overlay);
+    };
     document.body.appendChild(overlay);
     requestAnimationFrame(function() {
       overlay.classList.add('os-visible');

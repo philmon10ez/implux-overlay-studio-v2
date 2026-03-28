@@ -8,6 +8,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import optionalProxyHmac from '../middleware/optionalProxyHmac.js';
 import { verifyWebhook } from '../services/shopifyService.js';
+import { canonicalCampaignType } from '../lib/campaignType.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -37,7 +38,12 @@ router.get('/campaigns', optionalProxyHmac, async (req, res, next) => {
       },
       orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
     });
-    res.json({ campaigns });
+    res.json({
+      campaigns: campaigns.map((c) => ({
+        ...c,
+        type: canonicalCampaignType(c.type) || c.type,
+      })),
+    });
   } catch (err) {
     next(err);
   }

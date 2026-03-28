@@ -5,6 +5,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import auth from '../middleware/auth.js';
 import { pushCampaignToStore } from '../services/shopifyService.js';
+import { canonicalCampaignType, isKnownCampaignType } from '../lib/campaignType.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -52,11 +53,15 @@ router.post('/', async (req, res, next) => {
     }
     const mid = parseInt(merchantId, 10);
     if (Number.isNaN(mid)) return res.status(400).json({ error: 'Invalid merchantId' });
+    const canonType = canonicalCampaignType(type);
+    if (!isKnownCampaignType(canonType)) {
+      return res.status(400).json({ error: 'Invalid campaign type' });
+    }
     const campaign = await prisma.campaign.create({
       data: {
         name: String(name),
         merchantId: mid,
-        type: String(type),
+        type: canonType,
         triggerConfig: triggerConfig,
         designConfig: designConfig,
         promoCode: promoCode != null ? String(promoCode) : null,
@@ -79,7 +84,13 @@ router.put('/:id', async (req, res, next) => {
     const data = {};
     if (name !== undefined) data.name = String(name);
     if (merchantId !== undefined) { const mid = parseInt(merchantId, 10); if (!Number.isNaN(mid)) data.merchantId = mid; }
-    if (type !== undefined) data.type = String(type);
+    if (type !== undefined) {
+      const canonType = canonicalCampaignType(type);
+      if (!isKnownCampaignType(canonType)) {
+        return res.status(400).json({ error: 'Invalid campaign type' });
+      }
+      data.type = canonType;
+    }
     if (triggerConfig !== undefined) data.triggerConfig = triggerConfig;
     if (designConfig !== undefined) data.designConfig = designConfig;
     if (promoCode !== undefined) data.promoCode = promoCode === null || promoCode === '' ? null : String(promoCode);
@@ -151,7 +162,7 @@ router.post('/:id/duplicate', async (req, res, next) => {
       data: {
         name: newName,
         merchantId: source.merchantId,
-        type: source.type,
+        type: canonicalCampaignType(source.type) || source.type,
         triggerConfig: source.triggerConfig,
         designConfig: source.designConfig,
         promoCode: source.promoCode,
@@ -172,7 +183,7 @@ function normalizeCampaign(c) {
     name: c.name,
     merchantId: c.merchantId,
     merchant: c.merchant,
-    type: c.type,
+    type: canonicalCampaignType(c.type) || c.type,
     status: c.status,
     triggerConfig: c.triggerConfig,
     designConfig: c.designConfig,
