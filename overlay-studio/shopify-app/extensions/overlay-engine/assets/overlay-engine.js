@@ -3,11 +3,52 @@
   var shop = Shopify.shop;
   var PROXY_URL = 'https://api.implux.io/proxy';
 
+  function isExitIntentType(t) {
+    return String(t || '')
+      .toLowerCase()
+      .replace(/-/g, '_') === 'exit_intent';
+  }
+
+  function truthyExitTwoStep(d) {
+    if (d == null || d.exitTwoStep === undefined || d.exitTwoStep === null) return true;
+    if (d.exitTwoStep === false || d.exitTwoStep === 'false' || d.exitTwoStep === 0) return false;
+    return true;
+  }
+
+  function isScrollDepthType(t) {
+    return String(t || '')
+      .toLowerCase()
+      .replace(/-/g, '_') === 'scroll_depth';
+  }
+
+  function sortCampaignsNewestFirst(arr) {
+    arr.sort(function(a, b) {
+      var ta = a.updatedAt ? Date.parse(a.updatedAt) : 0;
+      var tb = b.updatedAt ? Date.parse(b.updatedAt) : 0;
+      if (tb !== ta) return tb - ta;
+      return (b.id || 0) - (a.id || 0);
+    });
+    return arr;
+  }
+
   fetch(PROXY_URL + '/campaigns?shop=' + encodeURIComponent(shop))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var campaigns = data.campaigns || [];
-      campaigns.forEach(function(c) { initCampaign(c); });
+      var exitOnes = [];
+      var scrollOnes = [];
+      var others = [];
+      for (var i = 0; i < campaigns.length; i++) {
+        var c = campaigns[i];
+        if (isExitIntentType(c.type)) exitOnes.push(c);
+        else if (isScrollDepthType(c.type)) scrollOnes.push(c);
+        else others.push(c);
+      }
+      sortCampaignsNewestFirst(exitOnes);
+      sortCampaignsNewestFirst(scrollOnes);
+      for (var j = 0; j < others.length; j++) initCampaign(others[j]);
+      if (exitOnes.length) initCampaign(exitOnes[0]);
+      if (scrollOnes.length) initCampaign(scrollOnes[0]);
     })
     .catch(function() {});
 
@@ -25,12 +66,12 @@
     if (!matchesPageTarget(triggerConfig)) return;
     if (!matchesDevice(triggerConfig)) return;
 
-    if (type === 'exit_intent') {
+    if (isExitIntentType(type)) {
       registerExitIntent(campaign);
     } else if (type === 'time_delay') {
       var sec = triggerConfig.timeDelaySeconds != null ? triggerConfig.timeDelaySeconds : (triggerConfig.delaySeconds != null ? triggerConfig.delaySeconds : 5);
       setTimeout(function() { checkCartAndShow(campaign); }, sec * 1000);
-    } else if (type === 'scroll_depth') {
+    } else if (isScrollDepthType(type)) {
       registerScrollTrigger(campaign);
     } else {
       checkCartAndShow(campaign);
@@ -56,19 +97,87 @@
     document.addEventListener('mouseleave', handler);
   }
 
+  function getScrollDepthMetrics() {
+    var el = document.documentElement;
+    var body = document.body;
+    var scrollHeight = Math.max(
+      el.scrollHeight,
+      body.scrollHeight,
+      el.offsetHeight,
+      body.offsetHeight,
+      el.clientHeight
+    );
+    var viewH = window.innerHeight || el.clientHeight || 0;
+    var maxScroll = Math.max(0, scrollHeight - viewH);
+    var y = window.pageYOffset != null ? window.pageYOffset : el.scrollTop || body.scrollTop || 0;
+    return { maxScroll: maxScroll, y: y };
+  }
+
   function registerScrollTrigger(campaign) {
     var tc = campaign.triggerConfig || {};
-    var pct = tc.scrollDepthPercent != null ? tc.scrollDepthPercent : (tc.scrollPercent != null ? tc.scrollPercent : 50);
-    var handler = function() {
-      var doc = document.documentElement || document.body;
-      var max = (doc.scrollHeight - window.innerHeight) || 1;
-      var scrolled = (window.scrollY / max) * 100;
-      if (scrolled >= pct) {
-        window.removeEventListener('scroll', handler);
-        checkCartAndShow(campaign);
+    var raw =
+      tc.scrollDepthPercent != null
+        ? Number(tc.scrollDepthPercent)
+        : tc.scrollPercent != null
+          ? Number(tc.scrollPercent)
+          : 50;
+    var threshold = Math.min(100, Math.max(0, raw));
+    var shortBehavior = (tc.scrollShortPageBehavior || 'immediate').toLowerCase();
+    var evaluateOnLoad = tc.scrollEvaluateOnLoad !== false && tc.scrollEvaluateOnLoad !== 'false';
+
+    var done = false;
+    var scrollListenerAttached = false;
+
+    function teardown() {
+      if (scrollListenerAttached) {
+        window.removeEventListener('scroll', onScroll);
+        scrollListenerAttached = false;
       }
-    };
-    window.addEventListener('scroll', handler);
+    }
+
+    function fire() {
+      if (done) return;
+      done = true;
+      teardown();
+      checkCartAndShow(campaign);
+    }
+
+    var ticking = false;
+    function onScroll() {
+      if (done) return;
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(function() {
+          ticking = false;
+          tryEvaluate();
+        });
+      }
+    }
+
+    function tryEvaluate() {
+      if (done) return;
+      var m = getScrollDepthMetrics();
+      var shortPagePx = 4;
+      if (m.maxScroll < shortPagePx) {
+        if (shortBehavior === 'never') {
+          teardown();
+          return;
+        }
+        fire();
+        return;
+      }
+      var pct = (m.y / m.maxScroll) * 100;
+      if (pct + 0.0001 >= threshold) fire();
+    }
+
+    scrollListenerAttached = true;
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    if (evaluateOnLoad) {
+      requestAnimationFrame(function() {
+        tryEvaluate();
+      });
+    }
   }
 
   function checkCartAndShow(campaign) {
@@ -106,7 +215,7 @@
   }
 
   function normalizeDesignConfig(d, promoCode, campaignType) {
-    var exitTwoStep = campaignType === 'exit_intent' && d.exitTwoStep !== false;
+    var exitTwoStep = isExitIntentType(campaignType) && truthyExitTwoStep(d);
     return {
       bgColor: d.background || '#ffffff',
       bgOpacity: d.backgroundOpacity != null ? d.backgroundOpacity : 0.95,
@@ -171,7 +280,7 @@
 
   function buildOverlayDOM(config, campaign) {
     var campaignId = campaign.id;
-    if (campaign.type === 'exit_intent' && config.exitTwoStep) {
+    if (isExitIntentType(campaign.type) && config.exitTwoStep) {
       return buildExitTwoStepOverlay(config, campaign);
     }
     if (!document.getElementById('os-styles')) {
@@ -254,13 +363,19 @@
     wrapper.querySelector('.os-close') &&
       wrapper.querySelector('.os-close').addEventListener('click', function() {
         var onOffer = box && box.classList.contains('os-exit-show-offer');
-        if (!onOffer) {
-          navigator.sendBeacon(PROXY_URL + '/track?event=exit_leave&campaign_id=' + campaignId + '&shop=' + encodeURIComponent(shop));
+        if (onOffer) {
+          box.classList.remove('os-exit-show-offer');
+          return;
         }
+        navigator.sendBeacon(PROXY_URL + '/track?event=exit_leave&campaign_id=' + campaignId + '&shop=' + encodeURIComponent(shop));
         wrapper.remove();
       });
     wrapper.querySelector('.os-backdrop') &&
       wrapper.querySelector('.os-backdrop').addEventListener('click', function() {
+        if (box && box.classList.contains('os-exit-show-offer')) {
+          box.classList.remove('os-exit-show-offer');
+          return;
+        }
         wrapper.remove();
       });
 
@@ -285,6 +400,11 @@
     if (dismiss) {
       dismiss.addEventListener('click', function(e) {
         e.preventDefault();
+        var tsBox = wrapper.querySelector('.os-box.os-exit-twostep');
+        if (tsBox && tsBox.classList.contains('os-exit-show-offer')) {
+          tsBox.classList.remove('os-exit-show-offer');
+          return;
+        }
         wrapper.remove();
       });
     }

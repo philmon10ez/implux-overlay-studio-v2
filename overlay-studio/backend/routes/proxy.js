@@ -30,10 +30,12 @@ router.get('/campaigns', optionalProxyHmac, async (req, res, next) => {
         id: true,
         name: true,
         type: true,
+        updatedAt: true,
         triggerConfig: true,
         designConfig: true,
         promoCode: true,
       },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
     });
     res.json({ campaigns });
   } catch (err) {

@@ -5,6 +5,81 @@ import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import ConfirmModal from '../components/ConfirmModal';
 
+const DEV_STORE = import.meta.env.VITE_SHOPIFY_DEV_STORE || '';
+const THEME_EXT_ID = import.meta.env.VITE_SHOPIFY_THEME_EXTENSION_ID || '';
+
+function ShopifyTestLauncher() {
+  const store = DEV_STORE.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const themeEditorApps = store
+    ? `https://${store}/admin/themes/current/editor?context=apps${
+        THEME_EXT_ID ? `&activateAppId=${encodeURIComponent(THEME_EXT_ID)}` : ''
+      }`
+    : '';
+  const storefront = store ? `https://${store}` : '';
+
+  return (
+    <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/80 p-5 shadow-sm">
+      <h2 className="text-lg font-semibold text-emerald-900">Shopify dev store — test your campaigns</h2>
+      <p className="mt-1 text-sm text-emerald-800/90">
+        After you install the Implux app on a development store, that store is synced automatically. Create a
+        campaign below for that merchant, publish it as <strong>active</strong>, enable the app embed in the theme,
+        then open your storefront to see the overlay.
+      </p>
+      <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-emerald-900">
+        <li>
+          <strong>Install app:</strong> Shopify Partners → your app → <em>Test on development store</em> → complete
+          install.
+        </li>
+        <li>
+          <strong>Enable embed:</strong> Online Store → Themes → Customize → App embeds → turn on Implux / overlay
+          engine.
+        </li>
+        <li>
+          <strong>Campaigns:</strong> Pick your dev store as merchant → New Campaign → Publish (active).
+        </li>
+        <li>
+          <strong>Verify:</strong> Visit your storefront; trigger the overlay (exit intent, timer, etc.).
+        </li>
+      </ol>
+      {(themeEditorApps || storefront) && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {themeEditorApps && (
+            <a
+              href={themeEditorApps}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800"
+            >
+              Open theme editor (enable app embed)
+            </a>
+          )}
+          {storefront && (
+            <a
+              href={storefront}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex rounded-lg border border-emerald-600 bg-white px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-50"
+            >
+              Open storefront preview
+            </a>
+          )}
+        </div>
+      )}
+      {!store && (
+        <p className="mt-3 text-xs text-emerald-800/80">
+          <strong>Optional:</strong> In Vercel set <code className="rounded bg-white/80 px-1">VITE_SHOPIFY_DEV_STORE</code>{' '}
+          (e.g. <code className="rounded bg-white/80 px-1">your-store.myshopify.com</code>) and{' '}
+          <code className="rounded bg-white/80 px-1">VITE_SHOPIFY_THEME_EXTENSION_ID</code> to show quick links here. See{' '}
+          <code className="rounded bg-white/80 px-1">docs/DEV-STORE-TEST-GUIDE.md</code>.
+        </p>
+      )}
+      <p className="mt-2 text-xs text-emerald-800/70">
+        From the embedded Shopify app you can also use <strong>Open Campaigns (admin.implux.io)</strong> to land here.
+      </p>
+    </div>
+  );
+}
+
 export default function Campaigns() {
   const [campaigns, setCampaigns] = useState([]);
   const [merchants, setMerchants] = useState([]);
@@ -84,6 +159,8 @@ export default function Campaigns() {
         </Link>
       </div>
       <p className="mt-1 text-gray-500">Create and manage overlay campaigns</p>
+
+      <ShopifyTestLauncher />
 
       <div className="mt-6 flex flex-wrap gap-4 rounded-lg bg-white p-4 shadow-card">
         <div>

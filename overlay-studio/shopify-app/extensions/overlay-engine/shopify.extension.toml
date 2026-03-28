@@ -1,5 +1,8 @@
 # Theme App Extension — Implux storefront script
 api_version = "2024-01"
+
+uid = "54bc4320-a0ae-810a-764d-030ed84b466291432148"
+
 type = "theme_app_extension"
 name = "overlay-engine"
 

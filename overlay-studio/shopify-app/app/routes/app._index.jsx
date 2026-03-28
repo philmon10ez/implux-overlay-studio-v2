@@ -15,8 +15,9 @@ export const loader = async ({ request }) => {
   const syncSecret = process.env.MERCHANT_SYNC_SECRET;
   let accessToken = session?.accessToken;
   if (!accessToken && shop) {
+    const shopNorm = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const dbSession = await prisma.session.findFirst({
-      where: { shop: shop.replace(/^https?:\/\//, '').replace(/\/$/, '') },
+      where: { shop: shopNorm },
     });
     accessToken = dbSession?.accessToken || null;
   }

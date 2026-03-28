@@ -27,6 +27,10 @@ const defaultTrigger = {
   frequencyCap: 'once_per_session',
   cartValueFilter: false,
   cartValueMin: 0,
+  /** scroll_depth: if page has almost no scroll room */
+  scrollShortPageBehavior: 'immediate',
+  /** Fire when visitor is already past threshold on load (e.g. return visit mid-page) */
+  scrollEvaluateOnLoad: true,
 };
 
 const defaultDesign = {
@@ -278,17 +282,92 @@ export default function CampaignBuilder() {
                 </div>
               )}
               {type === 'scroll_depth' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Scroll depth %</label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={triggerConfig.scrollDepthPercent}
-                    onChange={(e) => setTriggerConfig((t) => ({ ...t, scrollDepthPercent: Number(e.target.value) }))}
-                    className="mt-1 w-full"
-                  />
-                  <span className="text-sm text-gray-500">{triggerConfig.scrollDepthPercent}%</span>
+                <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Scroll depth trigger</h3>
+                    <p className="mt-1 text-xs text-gray-600 leading-relaxed">
+                      The popup runs after a visitor has scrolled down a set portion of the page — a signal they are
+                      engaged. Higher percentages (e.g. 65–80%) target readers who consume more content; lower values
+                      (e.g. 35–50%) cast a wider net. Pair with a timely offer, related products, or a lead capture in
+                      the Designer step.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Depth threshold</label>
+                    <p className="mt-0.5 text-xs text-gray-500">Percent of total scroll distance (top to bottom).</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {[40, 50, 65, 75, 90].map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setTriggerConfig((t) => ({ ...t, scrollDepthPercent: p }))}
+                          className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                            triggerConfig.scrollDepthPercent === p
+                              ? 'border-accent bg-accent text-white'
+                              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                          }`}
+                        >
+                          {p}%
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={100}
+                      value={Math.min(100, Math.max(1, Number(triggerConfig.scrollDepthPercent) || 50))}
+                      onChange={(e) =>
+                        setTriggerConfig((t) => ({ ...t, scrollDepthPercent: Number(e.target.value) }))
+                      }
+                      className="mt-3 w-full"
+                    />
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <span className="text-sm text-gray-600">{triggerConfig.scrollDepthPercent ?? 50}%</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={triggerConfig.scrollDepthPercent ?? 50}
+                        onChange={(e) =>
+                          setTriggerConfig((t) => ({
+                            ...t,
+                            scrollDepthPercent: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
+                          }))
+                        }
+                        className="w-20 rounded border border-gray-300 px-2 py-1 text-sm text-right"
+                        aria-label="Scroll depth percent"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Short pages (little or no scroll)</label>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      Some landing pages barely scroll. Choose whether to show the popup anyway or only when real
+                      scroll depth exists.
+                    </p>
+                    <select
+                      value={triggerConfig.scrollShortPageBehavior || 'immediate'}
+                      onChange={(e) =>
+                        setTriggerConfig((t) => ({ ...t, scrollShortPageBehavior: e.target.value }))
+                      }
+                      className="mt-2 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="immediate">Show popup (treat as fully scrolled)</option>
+                      <option value="never">Do not show on non-scrollable pages</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={triggerConfig.scrollEvaluateOnLoad !== false}
+                      onChange={(e) =>
+                        setTriggerConfig((t) => ({ ...t, scrollEvaluateOnLoad: e.target.checked }))
+                      }
+                    />
+                    <span className="text-sm text-gray-800">
+                      Trigger if visitor is already past the threshold when the page loads
+                    </span>
+                  </label>
                 </div>
               )}
               <div>
@@ -517,6 +596,15 @@ export default function CampaignBuilder() {
                       />
                     </div>
                   </div>
+                </div>
+              )}
+              {type === 'scroll_depth' && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-900">Scroll depth message</h3>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Shoppers will only see this after they scroll past your threshold — use headline and body for a
+                    contextual offer, product recommendation, or email signup that matches the moment.
+                  </p>
                 </div>
               )}
               <div>
