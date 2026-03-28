@@ -19,19 +19,49 @@ import { syncTransactions } from './services/rakutenService.js';
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+/** Admin dashboard origins (cookie auth + CORS). Comma-separated in FRONTEND_URL. */
+function normalizeOrigin(o) {
+  if (!o || typeof o !== 'string') return '';
+  return o.trim().replace(/\/$/, '');
+}
+
+const prodLike =
+  process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT;
+const defaultAdminOrigin = prodLike ? 'https://admin.implux.io' : 'http://localhost:5173';
+const adminCorsOrigins = (process.env.FRONTEND_URL || defaultAdminOrigin)
+  .split(',')
+  .map((s) => normalizeOrigin(s))
+  .filter(Boolean);
+
+if (prodLike && !process.env.FRONTEND_URL) {
+  console.warn(
+    '[cors] FRONTEND_URL not set; allowing default admin origin https://admin.implux.io (set FRONTEND_URL to add alternates, e.g. Vercel preview URLs)'
+  );
+}
 
 const apiCors = cors({
-  origin: FRONTEND_URL,
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    const n = normalizeOrigin(origin);
+    if (adminCorsOrigins.includes(n)) return callback(null, origin);
+    if (!prodLike) {
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(n)) return callback(null, origin);
+    }
+    callback(null, false);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 });
 
+const primaryFrontendUrl = adminCorsOrigins[0] || defaultAdminOrigin;
+
 /** Storefront overlay fetch() runs on *.myshopify.com and merchant custom domains — must echo Origin. */
 function storefrontCorsOrigin(origin, callback) {
   if (!origin) return callback(null, true);
-  if (origin === FRONTEND_URL) return callback(null, origin);
+  if (adminCorsOrigins.includes(normalizeOrigin(origin))) return callback(null, origin);
+  if (origin === primaryFrontendUrl) return callback(null, origin);
   if (/^https:\/\/.+\.myshopify\.com$/i.test(origin)) return callback(null, origin);
   if (/^https:\/\//.test(origin)) return callback(null, origin);
   callback(null, false);
