@@ -33,6 +33,24 @@
       .replace(/-/g, '_') === 'upsell_modal';
   }
 
+  function isPromoBannerType(t) {
+    return String(t || '')
+      .toLowerCase()
+      .replace(/-/g, '_') === 'promo_banner';
+  }
+
+  function isStickyFooterType(t) {
+    return String(t || '')
+      .toLowerCase()
+      .replace(/-/g, '_') === 'sticky_footer';
+  }
+
+  function isSpinWheelType(t) {
+    return String(t || '')
+      .toLowerCase()
+      .replace(/-/g, '_') === 'spin_wheel';
+  }
+
   var impluxUpsellCartHandlers = [];
   var impluxLastCartAddNotify = 0;
 
@@ -122,6 +140,9 @@
       var scrollOnes = [];
       var welcomeOnes = [];
       var upsellOnes = [];
+      var promoBannerOnes = [];
+      var stickyFooterOnes = [];
+      var spinWheelOnes = [];
       var others = [];
       for (var i = 0; i < campaigns.length; i++) {
         var c = campaigns[i];
@@ -129,17 +150,26 @@
         else if (isScrollDepthType(c.type)) scrollOnes.push(c);
         else if (isWelcomeMatType(c.type)) welcomeOnes.push(c);
         else if (isUpsellModalType(c.type)) upsellOnes.push(c);
+        else if (isPromoBannerType(c.type)) promoBannerOnes.push(c);
+        else if (isStickyFooterType(c.type)) stickyFooterOnes.push(c);
+        else if (isSpinWheelType(c.type)) spinWheelOnes.push(c);
         else others.push(c);
       }
       sortCampaignsNewestFirst(exitOnes);
       sortCampaignsNewestFirst(scrollOnes);
       sortCampaignsNewestFirst(welcomeOnes);
       sortCampaignsNewestFirst(upsellOnes);
+      sortCampaignsNewestFirst(promoBannerOnes);
+      sortCampaignsNewestFirst(stickyFooterOnes);
+      sortCampaignsNewestFirst(spinWheelOnes);
       for (var j = 0; j < others.length; j++) initCampaign(others[j]);
       if (exitOnes.length) initCampaign(exitOnes[0]);
       if (scrollOnes.length) initCampaign(scrollOnes[0]);
       if (welcomeOnes.length) initCampaign(welcomeOnes[0]);
       if (upsellOnes.length) initCampaign(upsellOnes[0]);
+      if (promoBannerOnes.length) initCampaign(promoBannerOnes[0]);
+      if (stickyFooterOnes.length) initCampaign(stickyFooterOnes[0]);
+      if (spinWheelOnes.length) initCampaign(spinWheelOnes[0]);
     })
     .catch(function() {});
 
@@ -153,6 +183,11 @@
     var cap = triggerConfig.frequencyCap;
     if (cap === 'once_ever' && localStorage.getItem(capKey)) return;
     if (cap === 'once_per_session' && sessionStorage.getItem(capKey)) return;
+
+    if (isPromoBannerType(type) || isStickyFooterType(type)) {
+      var dKey = 'os_bar_dismiss_' + id;
+      if (sessionStorage.getItem(dKey)) return;
+    }
 
     if (!matchesPageTarget(triggerConfig)) return;
     if (!matchesDevice(triggerConfig)) return;
@@ -174,6 +209,16 @@
       }, wdelay);
     } else if (isUpsellModalType(type)) {
       registerUpsellModalTrigger(campaign);
+    } else if (isPromoBannerType(type) || isStickyFooterType(type)) {
+      var pbd = campaign.triggerConfig || {};
+      var barDelay = pbd.persistentBarDelayMs != null ? Number(pbd.persistentBarDelayMs) : 0;
+      if (barDelay < 0 || isNaN(barDelay)) barDelay = 0;
+      if (barDelay > 60000) barDelay = 60000;
+      setTimeout(function() {
+        checkCartAndShowPersistentBar(campaign);
+      }, barDelay);
+    } else if (isSpinWheelType(type)) {
+      registerSpinWheelTrigger(campaign);
     } else {
       checkCartAndShow(campaign);
     }
@@ -204,13 +249,13 @@
     return 10;
   }
 
-  function registerExitIntent(campaign) {
+  function registerExitIntent(campaign, showImpl) {
     var tc = campaign.triggerConfig || {};
     var threshold = exitIntentYThreshold(tc);
     var handler = function(e) {
       if (typeof e.clientY === 'number' && e.clientY <= threshold) {
         document.removeEventListener('mouseleave', handler);
-        checkCartAndShow(campaign);
+        checkCartAndShow(campaign, showImpl);
       }
     };
     document.addEventListener('mouseleave', handler);
@@ -232,7 +277,7 @@
     return { maxScroll: maxScroll, y: y };
   }
 
-  function registerScrollTrigger(campaign) {
+  function registerScrollTrigger(campaign, showImpl) {
     var tc = campaign.triggerConfig || {};
     var raw =
       tc.scrollDepthPercent != null
@@ -258,7 +303,7 @@
       if (done) return;
       done = true;
       teardown();
-      checkCartAndShow(campaign);
+      checkCartAndShow(campaign, showImpl);
     }
 
     var ticking = false;
@@ -299,21 +344,138 @@
     }
   }
 
-  function checkCartAndShow(campaign) {
+  function registerSpinWheelTrigger(campaign) {
+    var tc = campaign.triggerConfig || {};
+    var mode = String(tc.spinWheelTrigger || 'time_delay')
+      .toLowerCase()
+      .replace(/-/g, '_');
+    var showSpin = showSpinWheelOverlay;
+
+    if (mode === 'exit_intent') {
+      registerExitIntent(campaign, showSpin);
+    } else if (mode === 'scroll_depth') {
+      registerScrollTrigger(campaign, showSpin);
+    } else {
+      var sec =
+        tc.timeDelaySeconds != null
+          ? tc.timeDelaySeconds
+          : tc.delaySeconds != null
+            ? tc.delaySeconds
+            : 5;
+      setTimeout(function() {
+        checkCartAndShow(campaign, showSpin);
+      }, sec * 1000);
+    }
+  }
+
+  function checkCartAndShow(campaign, showImpl) {
     var tc = campaign.triggerConfig || {};
     var minCart = tc.cartValueMin != null ? tc.cartValueMin : (tc.minCartValue != null ? tc.minCartValue : 0);
     var useCart = tc.cartValueFilter || minCart > 0;
+    var show = typeof showImpl === 'function' ? showImpl : showOverlay;
     if (useCart && minCart > 0) {
       fetch('/cart.js')
         .then(function(r) { return r.json(); })
         .then(function(cart) {
           var total = (cart.total_price || 0) / 100;
-          if (total >= minCart) showOverlay(campaign);
+          if (total >= minCart) show(campaign);
         })
-        .catch(function() { showOverlay(campaign); });
+        .catch(function() {
+          show(campaign);
+        });
     } else {
-      showOverlay(campaign);
+      show(campaign);
     }
+  }
+
+  function restoreBodyBarPadding(bar) {
+    if (!bar) return;
+    if (bar._osPrevPaddingBottom !== undefined) {
+      document.body.style.paddingBottom = bar._osPrevPaddingBottom;
+      bar._osPrevPaddingBottom = undefined;
+    }
+    if (bar._osPrevPaddingTop !== undefined) {
+      document.body.style.paddingTop = bar._osPrevPaddingTop;
+      bar._osPrevPaddingTop = undefined;
+    }
+  }
+
+  function checkCartAndShowPersistentBar(campaign) {
+    checkCartAndShow(campaign, showPersistentBar);
+  }
+
+  function showPersistentBar(campaign) {
+    var triggerConfig = campaign.triggerConfig || {};
+    var designConfig = campaign.designConfig || {};
+    var id = campaign.id;
+    var dismissKey = 'os_bar_dismiss_' + id;
+    if (sessionStorage.getItem(dismissKey)) return;
+
+    var capKey = 'os_shown_' + id;
+    if (triggerConfig.frequencyCap === 'once_ever') localStorage.setItem(capKey, '1');
+    if (triggerConfig.frequencyCap === 'once_per_session') sessionStorage.setItem(capKey, '1');
+
+    var config = normalizeDesignConfig(designConfig, campaign.promoCode, campaign.type);
+    var bar = buildPersistentBarDOM(config, campaign);
+    document.body.appendChild(bar);
+
+    var edge = config.barEdge === 'bottom' ? 'bottom' : 'top';
+    requestAnimationFrame(function() {
+      bar.classList.add('os-visible');
+      var barH = bar.offsetHeight || 52;
+      if (edge === 'bottom') {
+        var prev = document.body.style.paddingBottom || '';
+        bar._osPrevPaddingBottom = prev;
+        var cur = parseInt(prev, 10) || 0;
+        if (isNaN(cur)) cur = 0;
+        document.body.style.paddingBottom = cur + barH + 'px';
+      } else {
+        var prevT = document.body.style.paddingTop || '';
+        bar._osPrevPaddingTop = prevT;
+        var curT = parseInt(prevT, 10) || 0;
+        if (isNaN(curT)) curT = 0;
+        document.body.style.paddingTop = curT + barH + 'px';
+      }
+    });
+
+    navigator.sendBeacon(PROXY_URL + '/track?event=impression&campaign_id=' + id + '&shop=' + encodeURIComponent(shop));
+  }
+
+  function pickWeightedSpinSegment(segments) {
+    var list = segments && segments.length ? segments : [{ label: 'Special offer', weight: 1, code: '' }];
+    var totalW = 0;
+    for (var i = 0; i < list.length; i++) {
+      var w = Number(list[i].weight);
+      totalW += !isNaN(w) && w > 0 ? w : 1;
+    }
+    if (totalW <= 0) totalW = list.length;
+    var r = Math.random() * totalW;
+    var acc = 0;
+    for (var j = 0; j < list.length; j++) {
+      var wj = Number(list[j].weight);
+      acc += !isNaN(wj) && wj > 0 ? wj : 1;
+      if (r <= acc) return { index: j, seg: list[j] };
+    }
+    return { index: list.length - 1, seg: list[list.length - 1] };
+  }
+
+  function showSpinWheelOverlay(campaign) {
+    var triggerConfig = campaign.triggerConfig || {};
+    var designConfig = campaign.designConfig || {};
+    var id = campaign.id;
+
+    var capKey = 'os_shown_' + id;
+    if (triggerConfig.frequencyCap === 'once_ever') localStorage.setItem(capKey, '1');
+    if (triggerConfig.frequencyCap === 'once_per_session') sessionStorage.setItem(capKey, '1');
+
+    var config = normalizeDesignConfig(designConfig, campaign.promoCode, campaign.type);
+    var overlay = buildSpinWheelDOM(config, campaign);
+    document.body.appendChild(overlay);
+    requestAnimationFrame(function() {
+      overlay.classList.add('os-visible');
+    });
+
+    navigator.sendBeacon(PROXY_URL + '/track?event=impression&campaign_id=' + id + '&shop=' + encodeURIComponent(shop));
   }
 
   function showOverlay(campaign) {
@@ -382,7 +544,29 @@
       welcomeMatInnerMaxPx:
         d.welcomeMatInnerMaxPx != null && !isNaN(Number(d.welcomeMatInnerMaxPx))
           ? Math.min(1200, Math.max(280, Number(d.welcomeMatInnerMaxPx)))
-          : 640
+          : 640,
+      barEdge: (function() {
+        if (isStickyFooterType(campaignType)) return 'bottom';
+        var be = String(d.barEdge || '').toLowerCase();
+        if (be === 'bottom' || be === 'top') return be;
+        var pos = String(d.position || '');
+        if (pos.indexOf('bottom') !== -1) return 'bottom';
+        return 'top';
+      })(),
+      showPromoInBar: d.showPromoInBar !== false,
+      spinSegments:
+        Array.isArray(d.spinSegments) && d.spinSegments.length
+          ? d.spinSegments
+          : [
+              { label: '10% off', weight: 1, code: '' },
+              { label: 'Free shipping', weight: 1, code: '' },
+              { label: 'Bonus offer', weight: 1, code: '' },
+              { label: 'Try again', weight: 1, code: '' }
+            ],
+      spinRequireEmail: !!d.spinRequireEmail,
+      spinTitle: d.spinTitle || d.headline || 'Spin to win!',
+      spinSubtitle: d.spinSubtitle || d.subheadline || '',
+      spinButtonLabel: d.spinButtonLabel || d.ctaText || 'Spin the wheel'
     };
   }
 
@@ -570,6 +754,319 @@
     return wrapper;
   }
 
+  function resolveSegmentPromo(seg, mainPromo) {
+    var c = seg && seg.code != null ? String(seg.code).trim() : '';
+    if (c) return c;
+    return mainPromo || '';
+  }
+
+  function buildWheelConicGradient(n) {
+    var colors = ['#6c63ff', '#ec4899', '#fbbf24', '#34d399', '#60a5fa', '#f472b6', '#a78bfa', '#fde047'];
+    var parts = [];
+    var count = Math.max(1, n);
+    for (var i = 0; i < count; i++) {
+      var a0 = (i / count) * 360;
+      var a1 = ((i + 1) / count) * 360;
+      parts.push(colors[i % colors.length] + ' ' + a0 + 'deg ' + a1 + 'deg');
+    }
+    return 'conic-gradient(' + parts.join(',') + ')';
+  }
+
+  function buildPersistentBarDOM(config, campaign) {
+    var campaignId = campaign.id;
+    if (!document.getElementById('os-styles')) {
+      var st0 = document.createElement('style');
+      st0.id = 'os-styles';
+      st0.textContent = generateCSS();
+      document.head.appendChild(st0);
+    }
+
+    var edge = config.barEdge === 'bottom' ? 'bottom' : 'top';
+    var isFooter = isStickyFooterType(campaign.type);
+    var wrap = document.createElement('div');
+    wrap.id = 'os-bar-' + campaignId;
+    wrap.className =
+      'os-persistent-bar os-bar-' + edge + (isFooter ? ' os-sticky-footer' : ' os-promo-banner');
+    wrap.style.background = config.bgColor;
+    wrap.style.opacity = config.bgOpacity;
+
+    var promoChip =
+      config.showPromoInBar && config.promoCode
+        ? '<span class="os-bar-promo" style="border-radius:' +
+          config.ctaBorderRadius +
+          'px">' +
+          escapeHtml(config.promoCode) +
+          '</span>'
+        : '';
+
+    var headline = config.headline
+      ? '<span class="os-bar-headline" style="color:' +
+        config.headlineColor +
+        ';font-size:' +
+        Math.min(config.headlineFontSize, 22) +
+        'px;font-weight:' +
+        (config.headlineBold ? '700' : '600') +
+        '">' +
+        escapeHtml(config.headline) +
+        '</span>'
+      : '';
+    var sub = config.subheadline
+      ? '<span class="os-bar-sub" style="color:' +
+        config.subColor +
+        ';font-size:' +
+        Math.min(config.subFontSize, 14) +
+        'px">' +
+        escapeHtml(config.subheadline) +
+        '</span>'
+      : '';
+    var body = config.body
+      ? '<span class="os-bar-body" style="color:' +
+        config.bodyColor +
+        ';font-size:' +
+        Math.min(config.bodyFontSize, 14) +
+        'px">' +
+        escapeHtml(config.body) +
+        '</span>'
+      : '';
+
+    var cta = config.ctaText
+      ? '<button type="button" class="os-bar-cta" style="background:' +
+        config.ctaBgColor +
+        ';color:' +
+        config.ctaTextColor +
+        ';border-radius:' +
+        config.ctaBorderRadius +
+        'px">' +
+        escapeHtml(config.ctaText) +
+        '</button>'
+      : '';
+
+    var dismiss = config.dismissText
+      ? '<a href="#" class="os-bar-dismiss">' + escapeHtml(config.dismissText) + '</a>'
+      : '';
+
+    var close = config.closeButton
+      ? '<button type="button" class="os-bar-close" aria-label="Close">&#215;</button>'
+      : '';
+
+    wrap.innerHTML =
+      '<div class="os-bar-inner">' +
+      close +
+      '<div class="os-bar-main">' +
+      headline +
+      sub +
+      body +
+      promoChip +
+      '</div>' +
+      '<div class="os-bar-actions">' +
+      cta +
+      dismiss +
+      '</div>' +
+      '</div>';
+
+    function dismissBar() {
+      sessionStorage.setItem('os_bar_dismiss_' + campaign.id, '1');
+      restoreBodyBarPadding(wrap);
+      wrap.remove();
+    }
+
+    var closeEl = wrap.querySelector('.os-bar-close');
+    if (closeEl) closeEl.addEventListener('click', dismissBar);
+
+    var dis = wrap.querySelector('.os-bar-dismiss');
+    if (dis) {
+      dis.addEventListener('click', function(e) {
+        e.preventDefault();
+        dismissBar();
+      });
+    }
+
+    var ctaEl = wrap.querySelector('.os-bar-cta');
+    if (ctaEl) {
+      ctaEl.addEventListener('click', function() {
+        navigator.sendBeacon(
+          PROXY_URL + '/track?event=click&campaign_id=' + campaignId + '&shop=' + encodeURIComponent(shop)
+        );
+        if (config.ctaAction === 'redirect' && config.ctaUrl) {
+          window.location.href = config.ctaUrl;
+        } else if (config.ctaAction === 'copy_promo' && config.promoCode) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(config.promoCode);
+          }
+        } else if (config.ctaAction === 'close') {
+          dismissBar();
+        }
+      });
+    }
+
+    return wrap;
+  }
+
+  function buildSpinWheelDOM(config, campaign) {
+    var campaignId = campaign.id;
+    if (!document.getElementById('os-styles')) {
+      var st1 = document.createElement('style');
+      st1.id = 'os-styles';
+      st1.textContent = generateCSS();
+      document.head.appendChild(st1);
+    }
+
+    var segments = config.spinSegments || [];
+    var n = Math.max(1, segments.length);
+
+    var wrapper = document.createElement('div');
+    wrapper.id = 'os-overlay-' + campaignId;
+    wrapper.className = 'os-overlay-wrapper os-spin-wheel';
+
+    wrapper.innerHTML =
+      '<div class="os-backdrop"></div>' +
+      '<div class="os-box os-spin-box" style="background:' +
+      config.bgColor +
+      ';opacity:' +
+      config.bgOpacity +
+      ';border-radius:' +
+      config.borderRadius +
+      'px">' +
+      (config.closeButton
+        ? '<button type="button" class="os-close" aria-label="Close">&#215;</button>'
+        : '') +
+      '<div class="os-spin-intro">' +
+      '<h2 class="os-spin-title" style="color:' +
+      config.headlineColor +
+      '">' +
+      escapeHtml(config.spinTitle) +
+      '</h2>' +
+      (config.spinSubtitle
+        ? '<p class="os-spin-sub" style="color:' +
+          config.subColor +
+          '">' +
+          escapeHtml(config.spinSubtitle) +
+          '</p>'
+        : '') +
+      (config.spinRequireEmail
+        ? '<input type="email" class="os-spin-email" placeholder="you@example.com" autocomplete="email" />'
+        : '') +
+      '<div class="os-wheel-wrap">' +
+      '<div class="os-wheel-pointer" aria-hidden="true"></div>' +
+      '<div class="os-wheel-disk" style="background:' +
+      buildWheelConicGradient(n) +
+      '"></div>' +
+      '</div>' +
+      '<button type="button" class="os-spin-go" style="background:' +
+      config.ctaBgColor +
+      ';color:' +
+      config.ctaTextColor +
+      ';border-radius:' +
+      config.ctaBorderRadius +
+      'px">' +
+      escapeHtml(config.spinButtonLabel) +
+      '</button>' +
+      '</div>' +
+      '<div class="os-spin-result" style="display:none">' +
+      '<h3 class="os-spin-result-title" style="color:' +
+      config.headlineColor +
+      '"></h3>' +
+      '<p class="os-spin-result-body" style="color:' +
+      config.bodyColor +
+      '"></p>' +
+      '<p class="os-spin-code" style="display:none;font-weight:700;font-size:18px;color:' +
+      config.headlineColor +
+      '"></p>' +
+      '<button type="button" class="os-spin-copy" style="display:none;width:100%;padding:14px;margin-top:16px;border:0;cursor:pointer;font-size:16px;font-weight:600;background:' +
+      config.ctaBgColor +
+      ';color:' +
+      config.ctaTextColor +
+      ';border-radius:' +
+      config.ctaBorderRadius +
+      'px">Copy code</button>' +
+      '<button type="button" class="os-spin-close-secondary" style="margin-top:12px;width:100%;background:none;border:0;cursor:pointer;color:#888;text-decoration:underline;font-size:14px">Close</button>' +
+      '</div>' +
+      '</div>';
+
+    var disk = wrapper.querySelector('.os-wheel-disk');
+    var goBtn = wrapper.querySelector('.os-spin-go');
+    var intro = wrapper.querySelector('.os-spin-intro');
+    var result = wrapper.querySelector('.os-spin-result');
+    var resultTitle = wrapper.querySelector('.os-spin-result-title');
+    var resultBody = wrapper.querySelector('.os-spin-result-body');
+    var codeEl = wrapper.querySelector('.os-spin-code');
+    var copyBtn = wrapper.querySelector('.os-spin-copy');
+    var emailIn = wrapper.querySelector('.os-spin-email');
+    var spun = false;
+
+    function closeAll() {
+      wrapper.remove();
+    }
+
+    var closeTop = wrapper.querySelector('.os-close');
+    if (closeTop) closeTop.addEventListener('click', closeAll);
+    var bd = wrapper.querySelector('.os-backdrop');
+    if (bd) bd.addEventListener('click', closeAll);
+    var secClose = wrapper.querySelector('.os-spin-close-secondary');
+    if (secClose) secClose.addEventListener('click', closeAll);
+
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function() {
+        var code = codeEl ? codeEl.textContent : '';
+        if (code && navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code);
+        }
+        navigator.sendBeacon(
+          PROXY_URL + '/track?event=click&campaign_id=' + campaignId + '&shop=' + encodeURIComponent(shop)
+        );
+      });
+    }
+
+    var currentRot = 0;
+    if (goBtn && disk) {
+      goBtn.addEventListener('click', function() {
+        if (spun) return;
+        if (config.spinRequireEmail && emailIn) {
+          var em = (emailIn.value || '').trim();
+          if (!em || em.indexOf('@') < 1) {
+            emailIn.focus();
+            return;
+          }
+        }
+        spun = true;
+        goBtn.disabled = true;
+        var picked = pickWeightedSpinSegment(segments);
+        navigator.sendBeacon(
+          PROXY_URL + '/track?event=click&campaign_id=' + campaignId + '&shop=' + encodeURIComponent(shop)
+        );
+        var per = 360 / n;
+        var centerAngle = picked.index * per + per / 2;
+        var mod = (360 - centerAngle) % 360;
+        currentRot = currentRot + 360 * 7 + mod;
+        disk.style.transition = 'transform 4.2s cubic-bezier(0.15, 0.85, 0.2, 1)';
+        disk.style.transform = 'rotate(' + currentRot + 'deg)';
+        setTimeout(function() {
+          var code = resolveSegmentPromo(picked.seg, config.promoCode);
+          if (resultTitle) resultTitle.textContent = (picked.seg && picked.seg.label) || 'You won!';
+          if (resultBody) {
+            resultBody.textContent = code
+              ? 'Use this code at checkout.'
+              : 'Thanks for playing!';
+          }
+          if (codeEl && copyBtn) {
+            if (code) {
+              codeEl.style.display = 'block';
+              codeEl.textContent = code;
+              copyBtn.style.display = 'block';
+            } else {
+              codeEl.style.display = 'none';
+              copyBtn.style.display = 'none';
+            }
+          }
+          if (intro) intro.style.display = 'none';
+          if (result) result.style.display = 'block';
+        }, 4200);
+      });
+    }
+
+    return wrapper;
+  }
+
   function wireOfferInteractions(wrapper, config, campaignId) {
     var ctas = wrapper.querySelectorAll('.os-cta');
     for (var i = 0; i < ctas.length; i++) {
@@ -625,7 +1122,32 @@
       '.os-welcome-mat-inner .os-headline{font-size:clamp(22px,4vw,36px)!important;line-height:1.2}' +
       '.os-welcome-mat-inner .os-image{max-height:min(40vh,280px);width:auto;max-width:100%;object-fit:contain;margin-left:auto;margin-right:auto}' +
       '.os-welcome-mat-inner .os-cta{max-width:min(100%,380px);margin-left:auto;margin-right:auto}' +
-      '.os-upsell-modal .os-box{border:2px solid rgba(108,99,255,.22);box-shadow:0 24px 64px rgba(0,0,0,.32)}'
+      '.os-upsell-modal .os-box{border:2px solid rgba(108,99,255,.22);box-shadow:0 24px 64px rgba(0,0,0,.32)}' +
+      '.os-persistent-bar{position:fixed;left:0;right:0;z-index:999998;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 24px rgba(0,0,0,.12);transform:translateY(-100%);opacity:0;transition:transform .35s ease,opacity .35s ease}' +
+      '.os-persistent-bar.os-bar-bottom{top:auto;bottom:0;transform:translateY(100%)}' +
+      '.os-persistent-bar.os-bar-top{top:0;bottom:auto}' +
+      '.os-persistent-bar.os-visible{transform:translateY(0);opacity:1}' +
+      '.os-bar-inner{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;width:100%;max-width:1200px;padding:10px 40px 10px 14px;box-sizing:border-box;position:relative;margin:0 auto}' +
+      '.os-bar-main{display:flex;flex:1;flex-wrap:wrap;align-items:center;gap:6px 14px;min-width:0}' +
+      '.os-bar-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}' +
+      '.os-bar-close{position:absolute;top:4px;right:6px;border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:#64748b;padding:4px}' +
+      '.os-bar-cta{padding:8px 16px;border:0;cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap}' +
+      '.os-bar-promo{font-family:ui-monospace,monospace;font-size:13px;font-weight:700;padding:6px 10px;background:rgba(0,0,0,.06)}' +
+      '.os-bar-dismiss{font-size:13px;color:#64748b;text-decoration:underline;cursor:pointer}' +
+      '.os-sticky-footer.os-persistent-bar{box-shadow:0 -4px 24px rgba(0,0,0,.1)}' +
+      '.os-spin-wheel .os-box.os-spin-box{max-width:400px;width:92%;padding:28px 24px 24px}' +
+      '.os-wheel-wrap{position:relative;width:220px;height:220px;margin:16px auto}' +
+      '.os-wheel-disk{width:100%;height:100%;border-radius:50%;box-shadow:inset 0 0 0 6px rgba(255,255,255,.25);transition:transform 0s}' +
+      '.os-wheel-pointer{position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:18px solid #1f2937;z-index:2}' +
+      '.os-spin-email{display:block;width:100%;margin:12px 0;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:15px;box-sizing:border-box}' +
+      '.os-spin-title{margin:0 0 8px;font-size:22px;font-weight:700;text-align:center;line-height:1.25}' +
+      '.os-spin-sub{margin:0 0 8px;font-size:14px;text-align:center;line-height:1.45}' +
+      '.os-spin-go{display:block;width:100%;padding:14px;margin-top:8px;border:0;cursor:pointer;font-size:16px;font-weight:600}' +
+      '.os-spin-go:disabled{opacity:.55;cursor:default}' +
+      '.os-spin-result{text-align:center}' +
+      '.os-spin-result-title{margin:0 0 8px;font-size:20px;font-weight:700}' +
+      '.os-spin-result-body{margin:0 0 12px;font-size:14px;line-height:1.5}' +
+      '.os-spin-code{margin:0 0 8px}'
     );
   }
 

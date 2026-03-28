@@ -35,6 +35,10 @@ const defaultTrigger = {
   welcomeMatBackdropDismiss: true,
   /** upsell_modal: wait after successful /cart/add before showing modal */
   upsellAfterAddDelayMs: 500,
+  /** promo_banner / sticky_footer: delay before bar slides in */
+  persistentBarDelayMs: 0,
+  /** spin_wheel: time_delay | scroll_depth | exit_intent */
+  spinWheelTrigger: 'time_delay',
 };
 
 const defaultDesign = {
@@ -78,6 +82,20 @@ const defaultDesign = {
   exitOfferEyebrowColor: '#6c63ff',
   /** welcome_mat: max width (px) of text block on large screens; panel is still full viewport */
   welcomeMatInnerMaxPx: 640,
+  /** promo_banner: top | bottom edge */
+  barEdge: 'top',
+  showPromoInBar: true,
+  /** spin_wheel */
+  spinSegments: [
+    { label: '10% off', weight: 1, code: '' },
+    { label: 'Free shipping', weight: 1, code: '' },
+    { label: 'Bonus offer', weight: 1, code: '' },
+    { label: 'Try again', weight: 1, code: '' },
+  ],
+  spinRequireEmail: false,
+  spinTitle: 'Spin to win!',
+  spinSubtitle: 'Enter your email, then spin for an exclusive reward.',
+  spinButtonLabel: 'Spin the wheel',
 };
 
 const defaultPromo = {
@@ -123,7 +141,12 @@ export default function CampaignBuilder() {
         setDesignConfig({ ...defaultDesign, ...(c.designConfig || {}) });
         setPromoCode(c.promoCode || '');
         setPromoConfig({ ...defaultPromo, ...(c.promoConfig || {}) });
-        setShowPromoStep(!!c.promoCode || type === 'promo_banner');
+        setShowPromoStep(
+          !!c.promoCode ||
+            c.type === 'promo_banner' ||
+            c.type === 'sticky_footer' ||
+            c.type === 'spin_wheel'
+        );
       })
       .catch(() => navigate('/campaigns'))
       .finally(() => setLoading(false));
@@ -240,7 +263,51 @@ export default function CampaignBuilder() {
                   <button
                     key={t.id}
                     type="button"
-                    onClick={() => setType(t.id)}
+                    onClick={() => {
+                      setType(t.id);
+                      if (t.id === 'promo_banner') {
+                        setShowPromoStep(true);
+                        setDesignConfig((d) => ({
+                          ...d,
+                          barEdge: d.barEdge || 'top',
+                          showPromoInBar: d.showPromoInBar !== false,
+                          headline: d.headline || 'Limited time — save at checkout',
+                          body: d.body || 'Apply your exclusive code before it expires.',
+                          ctaText: d.ctaText || 'Copy code',
+                          ctaAction: 'copy_promo',
+                          position: 'top-bar',
+                        }));
+                      } else if (t.id === 'sticky_footer') {
+                        setShowPromoStep(true);
+                        setDesignConfig((d) => ({
+                          ...d,
+                          barEdge: 'bottom',
+                          showPromoInBar: d.showPromoInBar !== false,
+                          headline: d.headline || 'Special offer — shop today',
+                          body: d.body || 'Your discount code is ready at checkout.',
+                          ctaText: d.ctaText || 'Copy code',
+                          ctaAction: 'copy_promo',
+                          position: 'bottom-bar',
+                        }));
+                      } else if (t.id === 'spin_wheel') {
+                        setShowPromoStep(true);
+                        setDesignConfig((d) => ({
+                          ...d,
+                          spinTitle: d.spinTitle || d.headline || 'Spin to win!',
+                          spinSubtitle:
+                            d.spinSubtitle ||
+                            d.subheadline ||
+                            'Enter your email, then spin for a reward.',
+                          spinButtonLabel: d.spinButtonLabel || d.ctaText || 'Spin the wheel',
+                          headline: d.headline || 'Spin to win!',
+                          ctaAction: d.ctaAction || 'copy_promo',
+                        }));
+                        setTriggerConfig((tr) => ({
+                          ...tr,
+                          spinWheelTrigger: tr.spinWheelTrigger || 'time_delay',
+                        }));
+                      }
+                    }}
                     className={`flex flex-col items-center rounded-lg border-2 p-4 text-center transition ${
                       type === t.id ? 'border-accent bg-accent/10' : 'border-gray-200 hover:border-gray-300'
                     }`}
@@ -447,6 +514,109 @@ export default function CampaignBuilder() {
                       className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
                     />
                   </div>
+                </div>
+              )}
+              {(type === 'promo_banner' || type === 'sticky_footer') && (
+                <div className="rounded-lg border border-teal-200 bg-teal-50/70 p-4 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Persistent bar</h3>
+                    <p className="mt-1 text-xs text-gray-600 leading-relaxed">
+                      {type === 'promo_banner'
+                        ? 'A slim bar at the top or bottom of the page stays visible as shoppers browse — ideal for sitewide codes, free shipping, or seasonal sales. It does not dim the page.'
+                        : 'A fixed strip at the bottom of the viewport stays in view while scrolling — great for CTAs, codes, and reminders without blocking content.'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Delay before bar appears (ms)</label>
+                    <p className="mt-0.5 text-xs text-gray-500">0 = as soon as targeting rules pass. Small delays (200–800ms) can feel smoother after load.</p>
+                    <input
+                      type="number"
+                      min={0}
+                      max={60000}
+                      step={100}
+                      value={triggerConfig.persistentBarDelayMs ?? 0}
+                      onChange={(e) =>
+                        setTriggerConfig((t) => ({
+                          ...t,
+                          persistentBarDelayMs: Math.min(60000, Math.max(0, Number(e.target.value) || 0)),
+                        }))
+                      }
+                      className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+              {type === 'spin_wheel' && (
+                <div className="rounded-lg border border-fuchsia-200 bg-fuchsia-50/70 p-4 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Spin wheel — when to show</h3>
+                    <p className="mt-1 text-xs text-gray-600 leading-relaxed">
+                      The wheel opens as a focused popup after the trigger you choose. Pair with the Designer (wheel copy) and Promo Code step for rewards shoppers can redeem at checkout.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Trigger</label>
+                    <select
+                      value={triggerConfig.spinWheelTrigger || 'time_delay'}
+                      onChange={(e) =>
+                        setTriggerConfig((t) => ({ ...t, spinWheelTrigger: e.target.value }))
+                      }
+                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="time_delay">Time on site</option>
+                      <option value="scroll_depth">Scroll depth</option>
+                      <option value="exit_intent">Exit intent (desktop)</option>
+                    </select>
+                  </div>
+                  {triggerConfig.spinWheelTrigger === 'exit_intent' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Sensitivity</label>
+                      <select
+                        value={triggerConfig.sensitivity}
+                        onChange={(e) => setTriggerConfig((t) => ({ ...t, sensitivity: e.target.value }))}
+                        className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+                  )}
+                  {triggerConfig.spinWheelTrigger === 'time_delay' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Delay (seconds)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={triggerConfig.timeDelaySeconds}
+                        onChange={(e) =>
+                          setTriggerConfig((t) => ({
+                            ...t,
+                            timeDelaySeconds: Number(e.target.value) || 0,
+                          }))
+                        }
+                        className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                      />
+                    </div>
+                  )}
+                  {triggerConfig.spinWheelTrigger === 'scroll_depth' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Scroll depth (%)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={triggerConfig.scrollDepthPercent ?? 50}
+                        onChange={(e) =>
+                          setTriggerConfig((t) => ({
+                            ...t,
+                            scrollDepthPercent: Math.min(100, Math.max(1, Number(e.target.value) || 50)),
+                          }))
+                        }
+                        className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
               <div>
@@ -724,6 +894,186 @@ export default function CampaignBuilder() {
                   </p>
                 </div>
               )}
+              {type === 'promo_banner' && (
+                <div className="rounded-lg border border-teal-200 bg-teal-50/70 p-4 space-y-3">
+                  <h3 className="text-sm font-semibold text-gray-900">Promo code banner</h3>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Keep headline and body short. The primary CTA often works best as <strong>Copy code</strong> so
+                    shoppers can paste at checkout. Choose top or bottom placement below.
+                  </p>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600">Bar placement</label>
+                    <select
+                      value={designConfig.barEdge || 'top'}
+                      onChange={(e) => setDesignConfig((d) => ({ ...d, barEdge: e.target.value }))}
+                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="top">Top of page</option>
+                      <option value="bottom">Bottom of page</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={designConfig.showPromoInBar !== false}
+                      onChange={(e) =>
+                        setDesignConfig((d) => ({ ...d, showPromoInBar: e.target.checked }))
+                      }
+                    />
+                    <span className="text-sm text-gray-800">Show promo code chip in the bar</span>
+                  </label>
+                </div>
+              )}
+              {type === 'sticky_footer' && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50/70 p-4 space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-900">Sticky footer bar</h3>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    This bar is always fixed to the <strong>bottom</strong> of the viewport while visitors scroll. Use it
+                    for persistent offers, codes, or a single clear CTA.
+                  </p>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={designConfig.showPromoInBar !== false}
+                      onChange={(e) =>
+                        setDesignConfig((d) => ({ ...d, showPromoInBar: e.target.checked }))
+                      }
+                    />
+                    <span className="text-sm text-gray-800">Show promo code chip in the bar</span>
+                  </label>
+                </div>
+              )}
+              {type === 'spin_wheel' && (
+                <div className="rounded-lg border border-fuchsia-200 bg-fuchsia-50/70 p-4 space-y-4">
+                  <h3 className="text-sm font-semibold text-gray-900">Spin-to-win wheel</h3>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Shoppers see this popup after your trigger fires. Each slice can have its own label and optional
+                    override promo code; empty code uses the campaign code from the Promo Code step.
+                  </p>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600">Title</label>
+                    <input
+                      value={designConfig.spinTitle ?? ''}
+                      onChange={(e) => setDesignConfig((d) => ({ ...d, spinTitle: e.target.value }))}
+                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600">Subtitle</label>
+                    <input
+                      value={designConfig.spinSubtitle ?? ''}
+                      onChange={(e) => setDesignConfig((d) => ({ ...d, spinSubtitle: e.target.value }))}
+                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600">Spin button label</label>
+                    <input
+                      value={designConfig.spinButtonLabel ?? ''}
+                      onChange={(e) => setDesignConfig((d) => ({ ...d, spinButtonLabel: e.target.value }))}
+                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={!!designConfig.spinRequireEmail}
+                      onChange={(e) =>
+                        setDesignConfig((d) => ({ ...d, spinRequireEmail: e.target.checked }))
+                      }
+                    />
+                    <span className="text-sm text-gray-800">Require email before spinning</span>
+                  </label>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-600">Wheel slices</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDesignConfig((d) => ({
+                            ...d,
+                            spinSegments: [...(d.spinSegments || []), { label: 'New prize', weight: 1, code: '' }],
+                          }))
+                        }
+                        className="text-xs font-medium text-accent hover:underline"
+                      >
+                        Add slice
+                      </button>
+                    </div>
+                    <ul className="mt-2 space-y-2">
+                      {(designConfig.spinSegments || []).map((seg, idx) => (
+                        <li
+                          key={idx}
+                          className="flex flex-wrap items-end gap-2 rounded border border-gray-200 bg-white p-2"
+                        >
+                          <div className="min-w-[120px] flex-1">
+                            <label className="text-[10px] uppercase text-gray-500">Label</label>
+                            <input
+                              value={seg.label || ''}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setDesignConfig((d) => {
+                                  const segs = [...(d.spinSegments || [])];
+                                  segs[idx] = { ...segs[idx], label: v };
+                                  return { ...d, spinSegments: segs };
+                                });
+                              }}
+                              className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                            />
+                          </div>
+                          <div className="w-20">
+                            <label className="text-[10px] uppercase text-gray-500">Weight</label>
+                            <input
+                              type="number"
+                              min={0.1}
+                              step={0.1}
+                              value={seg.weight ?? 1}
+                              onChange={(e) => {
+                                const w = Number(e.target.value) || 1;
+                                setDesignConfig((d) => {
+                                  const segs = [...(d.spinSegments || [])];
+                                  segs[idx] = { ...segs[idx], weight: w };
+                                  return { ...d, spinSegments: segs };
+                                });
+                              }}
+                              className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                            />
+                          </div>
+                          <div className="min-w-[100px] flex-1">
+                            <label className="text-[10px] uppercase text-gray-500">Code (optional)</label>
+                            <input
+                              value={seg.code || ''}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setDesignConfig((d) => {
+                                  const segs = [...(d.spinSegments || [])];
+                                  segs[idx] = { ...segs[idx], code: v };
+                                  return { ...d, spinSegments: segs };
+                                });
+                              }}
+                              placeholder="Uses campaign code if empty"
+                              className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm font-mono"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDesignConfig((d) => ({
+                                ...d,
+                                spinSegments: (d.spinSegments || []).filter((_, i) => i !== idx),
+                              }))
+                            }
+                            disabled={(designConfig.spinSegments || []).length <= 2}
+                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 disabled:opacity-40"
+                          >
+                            Remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Background</label>
                 <div className="mt-1 flex gap-2">
@@ -745,36 +1095,40 @@ export default function CampaignBuilder() {
                   <span className="text-sm">{Math.round(designConfig.backgroundOpacity * 100)}%</span>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Size</label>
-                <div className="mt-1 flex gap-2">
-                  {['small', 'medium', 'large', 'full'].map((s) => (
-                    <label key={s} className="flex items-center gap-1">
-                      <input
-                        type="radio"
-                        name="size"
-                        checked={designConfig.size === s}
-                        onChange={() => setDesignConfig((d) => ({ ...d, size: s }))}
-                      />
-                      <span className="capitalize">{s}</span>
-                    </label>
-                  ))}
+              {!['promo_banner', 'sticky_footer'].includes(type) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Size</label>
+                  <div className="mt-1 flex gap-2">
+                    {['small', 'medium', 'large', 'full'].map((s) => (
+                      <label key={s} className="flex items-center gap-1">
+                        <input
+                          type="radio"
+                          name="size"
+                          checked={designConfig.size === s}
+                          onChange={() => setDesignConfig((d) => ({ ...d, size: s }))}
+                        />
+                        <span className="capitalize">{s}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Position</label>
-                <select
-                  value={designConfig.position}
-                  onChange={(e) => setDesignConfig((d) => ({ ...d, position: e.target.value }))}
-                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                >
-                  <option value="center">Center</option>
-                  <option value="bottom-bar">Bottom Bar</option>
-                  <option value="top-bar">Top Bar</option>
-                  <option value="bottom-right">Bottom Right</option>
-                  <option value="bottom-left">Bottom Left</option>
-                </select>
-              </div>
+              )}
+              {!['promo_banner', 'sticky_footer'].includes(type) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Position</label>
+                  <select
+                    value={designConfig.position}
+                    onChange={(e) => setDesignConfig((d) => ({ ...d, position: e.target.value }))}
+                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                  >
+                    <option value="center">Center</option>
+                    <option value="bottom-bar">Bottom Bar</option>
+                    <option value="top-bar">Top Bar</option>
+                    <option value="bottom-right">Bottom Right</option>
+                    <option value="bottom-left">Bottom Left</option>
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Headline</label>
                 <input
@@ -980,6 +1334,7 @@ export default function CampaignBuilder() {
                 designConfig={designConfig}
                 mobile={mobilePreview}
                 campaignType={type}
+                previewPromoCode={promoConfig.code || promoCode || ''}
               />
             </div>
           </div>
@@ -988,6 +1343,13 @@ export default function CampaignBuilder() {
         {/* Step 4 — Promo (optional) */}
         {step === 4 && (
           <div className="space-y-4 max-w-md">
+            {(type === 'promo_banner' || type === 'sticky_footer' || type === 'spin_wheel') && (
+              <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                {type === 'spin_wheel'
+                  ? 'Set a primary promo code below as the default prize, or leave slice-specific codes in the Designer. Shoppers who land on a slice without a code will use this campaign code when provided.'
+                  : 'A clear, short code works best in the bar. Shoppers can copy it from the chip or your CTA.'}
+              </p>
+            )}
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -1052,6 +1414,7 @@ export default function CampaignBuilder() {
                 designConfig={designConfig}
                 className="max-w-lg"
                 campaignType={type}
+                previewPromoCode={promoConfig.code || promoCode || ''}
               />
             </div>
             <div className="flex gap-3">

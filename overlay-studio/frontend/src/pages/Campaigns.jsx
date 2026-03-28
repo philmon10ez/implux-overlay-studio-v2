@@ -191,7 +191,9 @@ export default function Campaigns() {
             <option value="scroll_depth">Scroll Depth</option>
             <option value="welcome_mat">Welcome Mat</option>
             <option value="promo_banner">Promo Banner</option>
+            <option value="spin_wheel">Spin to Win</option>
             <option value="sticky_footer">Sticky Footer</option>
+            <option value="upsell_modal">Upsell Modal</option>
           </select>
         </div>
         <div>

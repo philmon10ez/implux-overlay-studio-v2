@@ -8,6 +8,7 @@ export default function OverlayPreview({
   className = '',
   mobile = false,
   campaignType = '',
+  previewPromoCode = '',
 }) {
   const d = designConfig;
   const bg = d.background || '#ffffff';
@@ -113,6 +114,19 @@ export default function OverlayPreview({
     </>
   );
 
+  const spinSegments = Array.isArray(d.spinSegments) && d.spinSegments.length ? d.spinSegments : [];
+  const spinGradient = (() => {
+    const colors = ['#6c63ff', '#ec4899', '#fbbf24', '#34d399', '#60a5fa', '#f472b6'];
+    const n = Math.max(1, spinSegments.length);
+    const parts = [];
+    for (let i = 0; i < n; i += 1) {
+      const a0 = (i / n) * 360;
+      const a1 = ((i + 1) / n) * 360;
+      parts.push(`${colors[i % colors.length]} ${a0}deg ${a1}deg`);
+    }
+    return `conic-gradient(${parts.join(',')})`;
+  })();
+
   const renderGatePanel = () => (
     <>
       {(d.exitGateHeadline || '').trim() ? (
@@ -171,6 +185,173 @@ export default function OverlayPreview({
       </div>
     </>
   );
+
+  if (campaignType === 'promo_banner' || campaignType === 'sticky_footer') {
+    const edge = campaignType === 'sticky_footer' ? 'bottom' : d.barEdge === 'bottom' ? 'bottom' : 'top';
+    const showChip = d.showPromoInBar !== false;
+    return (
+      <div
+        className={`relative overflow-hidden rounded-lg bg-gray-200 ${className}`}
+        style={{
+          width: mobile ? 375 : 800,
+          height: mobile ? 600 : 500,
+          maxWidth: '100%',
+        }}
+      >
+        <div className="flex items-center gap-2 border-b border-gray-300 bg-gray-100 px-3 py-2">
+          <div className="flex gap-1.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
+            <div className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+            <div className="h-2.5 w-2.5 rounded-full bg-green-400" />
+          </div>
+          <div className="ml-4 flex-1 rounded bg-white px-3 py-1 text-xs text-gray-400">
+            https://store.myshopify.com
+          </div>
+        </div>
+        <div className="absolute inset-0 top-9 bg-gray-100 p-4">
+          <div className="grid grid-cols-3 gap-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-24 rounded bg-gray-200" />
+            ))}
+          </div>
+        </div>
+        <div
+          className={`absolute left-0 right-0 z-20 flex flex-wrap items-center gap-2 border-y border-black/10 px-3 py-2 shadow-md ${
+            edge === 'bottom' ? 'bottom-0' : 'top-9'
+          }`}
+          style={{
+            backgroundColor: bg,
+            opacity,
+          }}
+        >
+          {d.showCloseButton !== false && (
+            <span className="text-gray-500" aria-hidden>
+              ×
+            </span>
+          )}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left">
+            {d.headline && (
+              <span
+                className="font-semibold"
+                style={{
+                  fontSize: Math.min(d.headlineSize || 22, 18),
+                  color: d.headlineColor || '#1f2937',
+                }}
+              >
+                {d.headline}
+              </span>
+            )}
+            {d.body && (
+              <span className="text-xs" style={{ color: d.bodyColor || '#4b5563' }}>
+                {d.body}
+              </span>
+            )}
+            {showChip && (
+              <span
+                className="rounded px-2 py-0.5 font-mono text-xs font-bold"
+                style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}
+              >
+                {(previewPromoCode || 'SAVE10').toString().slice(0, 16)}
+              </span>
+            )}
+          </div>
+          {d.ctaText && (
+            <button
+              type="button"
+              className="shrink-0 rounded px-3 py-1.5 text-xs font-semibold"
+              style={{
+                backgroundColor: d.ctaBgColor || '#6c63ff',
+                color: d.ctaTextColor || '#fff',
+                borderRadius: (d.ctaBorderRadius ?? 8) + 'px',
+              }}
+            >
+              {d.ctaText}
+            </button>
+          )}
+        </div>
+        <p className="absolute bottom-1 left-0 right-0 text-center text-[10px] text-gray-500">
+          {campaignType === 'sticky_footer' ? 'Sticky footer — fixed to viewport bottom' : 'Promo banner — no page dim'}
+        </p>
+      </div>
+    );
+  }
+
+  if (campaignType === 'spin_wheel') {
+    const title = d.spinTitle || d.headline || 'Spin to win!';
+    const sub = d.spinSubtitle || d.subheadline || '';
+    const btn = d.spinButtonLabel || d.ctaText || 'Spin the wheel';
+    return (
+      <div
+        className={`relative overflow-hidden rounded-lg bg-gray-200 ${className}`}
+        style={{
+          width: mobile ? 375 : 800,
+          height: mobile ? 600 : 500,
+          maxWidth: '100%',
+        }}
+      >
+        <div className="flex items-center gap-2 border-b border-gray-300 bg-gray-100 px-3 py-2">
+          <div className="flex gap-1.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
+            <div className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+            <div className="h-2.5 w-2.5 rounded-full bg-green-400" />
+          </div>
+          <div className="ml-4 flex-1 rounded bg-white px-3 py-1 text-xs text-gray-400">
+            https://store.myshopify.com
+          </div>
+        </div>
+        <div className="absolute inset-0 top-9 flex items-center justify-center bg-black/40">
+          <div
+            className="mx-4 max-w-sm rounded-xl p-5 shadow-xl"
+            style={{
+              backgroundColor: bg,
+              opacity,
+            }}
+          >
+            {d.showCloseButton !== false && (
+              <div className="mb-1 text-right text-gray-400">×</div>
+            )}
+            <h3 className="text-center text-lg font-bold" style={{ color: d.headlineColor || '#1f2937' }}>
+              {title}
+            </h3>
+            {sub && (
+              <p className="mt-1 text-center text-sm" style={{ color: d.subheadlineColor || '#6b7280' }}>
+                {sub}
+              </p>
+            )}
+            {d.spinRequireEmail && (
+              <div className="mt-3 rounded border border-gray-200 bg-white px-3 py-2 text-xs text-gray-400">
+                Email field (preview)
+              </div>
+            )}
+            <div className="relative mx-auto mt-4 h-36 w-36">
+              <div
+                className="absolute -top-1 left-1/2 z-10 h-0 w-0 -translate-x-1/2 border-x-8 border-b-[14px] border-x-transparent border-b-gray-800"
+                aria-hidden
+              />
+              <div
+                className="h-full w-full rounded-full shadow-inner"
+                style={{ background: spinGradient }}
+              />
+            </div>
+            <button
+              type="button"
+              className="mt-4 w-full rounded-lg py-2.5 text-sm font-semibold"
+              style={{
+                backgroundColor: d.ctaBgColor || '#6c63ff',
+                color: d.ctaTextColor || '#fff',
+                borderRadius: (d.ctaBorderRadius ?? 8) + 'px',
+              }}
+            >
+              {btn}
+            </button>
+            <p className="mt-2 text-center text-[10px] text-gray-500">
+              {spinSegments.length} slice{spinSegments.length === 1 ? '' : 's'} · weighted random on spin
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (campaignType === 'welcome_mat') {
     const innerPreview = Math.min(320, Math.max(200, (Number(d.welcomeMatInnerMaxPx) || 640) * 0.48));
