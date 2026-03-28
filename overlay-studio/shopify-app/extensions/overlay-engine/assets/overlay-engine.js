@@ -27,6 +27,83 @@
       .replace(/-/g, '_') === 'welcome_mat';
   }
 
+  function isUpsellModalType(t) {
+    return String(t || '')
+      .toLowerCase()
+      .replace(/-/g, '_') === 'upsell_modal';
+  }
+
+  var impluxUpsellCartHandlers = [];
+  var impluxLastCartAddNotify = 0;
+
+  function impluxNotifyCartAdd() {
+    var now = Date.now();
+    if (now - impluxLastCartAddNotify < 400) return;
+    impluxLastCartAddNotify = now;
+    for (var i = 0; i < impluxUpsellCartHandlers.length; i++) {
+      try {
+        impluxUpsellCartHandlers[i]();
+      } catch (e) {}
+    }
+  }
+
+  function impluxInstallCartAddHooks() {
+    if (window.__impluxCartAddHooks) return;
+    window.__impluxCartAddHooks = true;
+
+    var origFetch = window.fetch;
+    if (typeof origFetch === 'function') {
+      window.fetch = function() {
+        var args = arguments;
+        var p = origFetch.apply(this, args);
+        if (p && typeof p.then === 'function') {
+          return p.then(function(res) {
+            try {
+              var u = typeof args[0] === 'string' ? args[0] : args[0] && args[0].url ? args[0].url : '';
+              if (res && res.ok && u && /\/cart\/add(\.js|\.json)?/i.test(String(u))) {
+                impluxNotifyCartAdd();
+              }
+            } catch (e1) {}
+            return res;
+          });
+        }
+        return p;
+      };
+    }
+
+    try {
+      var XO = XMLHttpRequest.prototype.open;
+      var XS = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function(method, url) {
+        this.__impluxUrl = url;
+        return XO.apply(this, arguments);
+      };
+      XMLHttpRequest.prototype.send = function() {
+        var xhr = this;
+        xhr.addEventListener('load', function() {
+          try {
+            if (xhr.status >= 200 && xhr.status < 300 && /\/cart\/add/i.test(String(xhr.__impluxUrl || ''))) {
+              impluxNotifyCartAdd();
+            }
+          } catch (e2) {}
+        });
+        return XS.apply(this, arguments);
+      };
+    } catch (e3) {}
+
+    document.addEventListener(
+      'submit',
+      function(e) {
+        var form = e.target;
+        if (!form || !form.action) return;
+        if (/\/cart\/add/i.test(String(form.action))) {
+          setTimeout(impluxNotifyCartAdd, 900);
+        }
+      },
+      true
+    );
+  }
+
   function sortCampaignsNewestFirst(arr) {
     arr.sort(function(a, b) {
       var ta = a.updatedAt ? Date.parse(a.updatedAt) : 0;
@@ -44,21 +121,25 @@
       var exitOnes = [];
       var scrollOnes = [];
       var welcomeOnes = [];
+      var upsellOnes = [];
       var others = [];
       for (var i = 0; i < campaigns.length; i++) {
         var c = campaigns[i];
         if (isExitIntentType(c.type)) exitOnes.push(c);
         else if (isScrollDepthType(c.type)) scrollOnes.push(c);
         else if (isWelcomeMatType(c.type)) welcomeOnes.push(c);
+        else if (isUpsellModalType(c.type)) upsellOnes.push(c);
         else others.push(c);
       }
       sortCampaignsNewestFirst(exitOnes);
       sortCampaignsNewestFirst(scrollOnes);
       sortCampaignsNewestFirst(welcomeOnes);
+      sortCampaignsNewestFirst(upsellOnes);
       for (var j = 0; j < others.length; j++) initCampaign(others[j]);
       if (exitOnes.length) initCampaign(exitOnes[0]);
       if (scrollOnes.length) initCampaign(scrollOnes[0]);
       if (welcomeOnes.length) initCampaign(welcomeOnes[0]);
+      if (upsellOnes.length) initCampaign(upsellOnes[0]);
     })
     .catch(function() {});
 
@@ -91,9 +172,29 @@
       setTimeout(function() {
         checkCartAndShow(campaign);
       }, wdelay);
+    } else if (isUpsellModalType(type)) {
+      registerUpsellModalTrigger(campaign);
     } else {
       checkCartAndShow(campaign);
     }
+  }
+
+  function registerUpsellModalTrigger(campaign) {
+    impluxInstallCartAddHooks();
+    var tc = campaign.triggerConfig || {};
+    var delay = tc.upsellAfterAddDelayMs != null ? Number(tc.upsellAfterAddDelayMs) : 500;
+    if (delay < 0 || isNaN(delay)) delay = 500;
+    if (delay > 15000) delay = 15000;
+
+    function onCartAdd() {
+      if (!matchesPageTarget(tc)) return;
+      if (!matchesDevice(tc)) return;
+      setTimeout(function() {
+        checkCartAndShow(campaign);
+      }, delay);
+    }
+
+    impluxUpsellCartHandlers.push(onCartAdd);
   }
 
   function exitIntentYThreshold(triggerConfig) {
@@ -326,7 +427,8 @@
 
     var wrapper = document.createElement('div');
     wrapper.id = 'os-overlay-' + campaignId;
-    wrapper.className = 'os-overlay-wrapper';
+    wrapper.className =
+      'os-overlay-wrapper' + (isUpsellModalType(campaign.type) ? ' os-upsell-modal' : '');
     wrapper.innerHTML =
       '<div class="os-backdrop"></div>' +
       '<div class="os-box" style="background:' + config.bgColor + ';opacity:' + config.bgOpacity + ';border-radius:' + config.borderRadius + 'px;">' +
@@ -522,7 +624,8 @@
       '.os-welcome-mat-inner{width:100%;margin:0 auto;text-align:center;flex-shrink:0}' +
       '.os-welcome-mat-inner .os-headline{font-size:clamp(22px,4vw,36px)!important;line-height:1.2}' +
       '.os-welcome-mat-inner .os-image{max-height:min(40vh,280px);width:auto;max-width:100%;object-fit:contain;margin-left:auto;margin-right:auto}' +
-      '.os-welcome-mat-inner .os-cta{max-width:min(100%,380px);margin-left:auto;margin-right:auto}'
+      '.os-welcome-mat-inner .os-cta{max-width:min(100%,380px);margin-left:auto;margin-right:auto}' +
+      '.os-upsell-modal .os-box{border:2px solid rgba(108,99,255,.22);box-shadow:0 24px 64px rgba(0,0,0,.32)}'
     );
   }
 

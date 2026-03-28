@@ -252,6 +252,11 @@ export default function OverlayPreview({
         className="absolute inset-0 top-9 flex items-center justify-center bg-black/40"
         style={{ backgroundColor: `rgba(0,0,0,0.4)` }}
       >
+        {campaignType === 'upsell_modal' && (
+          <div className="absolute left-3 top-12 z-10 rounded-md border border-sky-200 bg-sky-100 px-2 py-1 text-[10px] font-medium text-sky-900 shadow-sm">
+            After add to cart (preview)
+          </div>
+        )}
         {isExitTwoStep && (
           <div className="absolute right-3 top-12 z-10 flex gap-1 rounded-md border border-gray-300 bg-white p-0.5 text-xs shadow-sm">
             <button

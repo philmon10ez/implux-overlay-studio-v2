@@ -33,6 +33,8 @@ const defaultTrigger = {
   scrollEvaluateOnLoad: true,
   welcomeMatDelayMs: 0,
   welcomeMatBackdropDismiss: true,
+  /** upsell_modal: wait after successful /cart/add before showing modal */
+  upsellAfterAddDelayMs: 500,
 };
 
 const defaultDesign = {
@@ -414,6 +416,39 @@ export default function CampaignBuilder() {
                   </label>
                 </div>
               )}
+              {type === 'upsell_modal' && (
+                <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-4 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Upsell / cross-sell timing</h3>
+                    <p className="mt-1 text-xs text-gray-600 leading-relaxed">
+                      This modal runs after Shopify confirms an <strong>add to cart</strong> (Ajax <code className="rounded bg-white/80 px-1">/cart/add</code>
+                      ). Use it to suggest add-ons, bundles, or upgrades while purchase intent is high. Use{' '}
+                      <strong>Page targeting</strong> below to limit it to product pages, cart, or specific URLs.{' '}
+                      <strong>Frequency cap</strong> avoids nagging (e.g. once per session).
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Delay after add to cart (ms)</label>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      Short delay lets the theme update the cart drawer or button state before your modal appears.
+                    </p>
+                    <input
+                      type="number"
+                      min={0}
+                      max={15000}
+                      step={100}
+                      value={triggerConfig.upsellAfterAddDelayMs ?? 500}
+                      onChange={(e) =>
+                        setTriggerConfig((t) => ({
+                          ...t,
+                          upsellAfterAddDelayMs: Math.min(15000, Math.max(0, Number(e.target.value) || 0)),
+                        }))
+                      }
+                      className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Page Targeting</label>
                 <div className="mt-2 space-y-2">
@@ -677,6 +712,16 @@ export default function CampaignBuilder() {
                       className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
                     />
                   </div>
+                </div>
+              )}
+              {type === 'upsell_modal' && (
+                <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-4 space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-900">Upsell / cross-sell message</h3>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Lead with a clear benefit (complete the look, save as a bundle, upgrade shipping). Primary CTA can
+                    link to a collection or product (<strong>Redirect URL</strong>); secondary dismiss keeps the flow
+                    light. Promo step can auto-copy a code when relevant.
+                  </p>
                 </div>
               )}
               <div>
