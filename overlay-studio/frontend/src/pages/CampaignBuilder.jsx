@@ -35,6 +35,8 @@ const defaultTrigger = {
   welcomeMatBackdropDismiss: true,
   /** upsell_modal: wait after successful /cart/add before showing modal */
   upsellAfterAddDelayMs: 500,
+  /** upsell_modal: optional variant SKUs (comma / newline / semicolon); modal only when added line matches */
+  upsellSkuAllowlist: '',
   /** promo_banner / sticky_footer: delay before bar slides in */
   persistentBarDelayMs: 0,
   /** spin_wheel: time_delay | scroll_depth | exit_intent */
@@ -524,7 +526,8 @@ export default function CampaignBuilder() {
                     <p className="mt-1 text-xs text-gray-600 leading-relaxed">
                       This modal runs after Shopify confirms an <strong>add to cart</strong> (Ajax <code className="rounded bg-white/80 px-1">/cart/add</code>
                       ). Use it to suggest add-ons, bundles, or upgrades while purchase intent is high. Use{' '}
-                      <strong>Page targeting</strong> below to limit it to product pages, cart, or specific URLs.{' '}
+                      <strong>Page targeting</strong> below to limit by path (e.g. product pages or a <strong>custom URL</strong> regex for a vendor product).{' '}
+                      Use <strong>Variant SKUs</strong> to tie this campaign to specific products (matches each variant&apos;s SKU in Shopify).{' '}
                       <strong>Frequency cap</strong> avoids nagging (e.g. once per session).
                     </p>
                   </div>
@@ -546,6 +549,21 @@ export default function CampaignBuilder() {
                         }))
                       }
                       className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Variant SKUs (optional)</label>
+                    <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">
+                      If you list SKUs, this modal only appears when the item just added uses a matching variant SKU (case-insensitive). Leave blank to
+                      fire for any add-to-cart that passes page and device rules. Combine with <strong>Custom URL</strong> or <strong>Product pages</strong>{' '}
+                      to align with specific vendor product URLs.
+                    </p>
+                    <textarea
+                      value={triggerConfig.upsellSkuAllowlist ?? ''}
+                      onChange={(e) => setTriggerConfig((t) => ({ ...t, upsellSkuAllowlist: e.target.value }))}
+                      placeholder={'e.g. VENDOR-TEE-BLK-S\nVENDOR-MUG-01'}
+                      rows={4}
+                      className="mt-1 w-full max-w-lg rounded border border-gray-300 px-3 py-2 text-sm font-mono"
                     />
                   </div>
                 </div>
@@ -1462,6 +1480,12 @@ export default function CampaignBuilder() {
 <p><strong>Merchant:</strong> {merchants.find((m) => m.id === parseInt(merchantId, 10))?.storeName ?? (merchantId || '—')}</p>
                 <p><strong>Type:</strong> {TYPES.find((t) => t.id === type)?.label ?? (type || '—')}</p>
               <p><strong>Promo:</strong> {promoConfig.code || promoCode || 'None'}</p>
+              {type === 'upsell_modal' && (triggerConfig.upsellSkuAllowlist || '').trim() ? (
+                <p className="mt-2">
+                  <strong>SKU filter:</strong>{' '}
+                  <span className="font-mono text-xs whitespace-pre-wrap break-all">{(triggerConfig.upsellSkuAllowlist || '').trim()}</span>
+                </p>
+              ) : null}
             </div>
             <div>
               <p className="mb-2 font-medium">Preview</p>

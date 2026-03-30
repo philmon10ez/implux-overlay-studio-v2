@@ -90,6 +90,47 @@
 
   var impluxUpsellCartHandlers = [];
   var impluxLastCartAddNotify = 0;
+  /** SKUs from the last successful /cart/add JSON response (fetch/XHR); cleared after upsell handlers read it */
+  var impluxLastCartAddSkus = [];
+
+  function impluxSkuNorm(s) {
+    return String(s == null ? '' : s)
+      .trim()
+      .toLowerCase();
+  }
+
+  function impluxParseUpsellSkuAllowlist(tc) {
+    var raw =
+      tc && tc.upsellSkuAllowlist != null
+        ? String(tc.upsellSkuAllowlist)
+        : tc && tc.productSkus != null
+          ? String(tc.productSkus)
+          : '';
+    if (!raw.trim()) return [];
+    var parts = raw.split(/[\n,;]+/);
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+      var n = impluxSkuNorm(parts[i]);
+      if (n) out.push(n);
+    }
+    return out;
+  }
+
+  function impluxExtractSkusFromCartAddJson(data) {
+    if (!data || typeof data !== 'object') return [];
+    var out = [];
+    if (Array.isArray(data.items)) {
+      for (var i = 0; i < data.items.length; i++) {
+        var it = data.items[i];
+        var sku = it && it.sku != null ? String(it.sku).trim() : '';
+        if (sku) out.push(sku);
+      }
+      return out;
+    }
+    var one = data.sku != null ? String(data.sku).trim() : '';
+    if (one) out.push(one);
+    return out;
+  }
 
   function impluxNotifyCartAdd() {
     var now = Date.now();
@@ -115,8 +156,24 @@
           return p.then(function(res) {
             try {
               var u = typeof args[0] === 'string' ? args[0] : args[0] && args[0].url ? args[0].url : '';
-              if (res && res.ok && u && /\/cart\/add(\.js|\.json)?/i.test(String(u))) {
-                impluxNotifyCartAdd();
+              if (res && res.ok && u && /\/cart\/add/i.test(String(u))) {
+                var ct = res.headers && typeof res.headers.get === 'function' ? res.headers.get('content-type') || '' : '';
+                if (ct.indexOf('application/json') !== -1 || /\.json(\?|$)/i.test(String(u))) {
+                  res
+                    .clone()
+                    .json()
+                    .then(function(j) {
+                      impluxLastCartAddSkus = impluxExtractSkusFromCartAddJson(j);
+                      impluxNotifyCartAdd();
+                    })
+                    .catch(function() {
+                      impluxLastCartAddSkus = [];
+                      impluxNotifyCartAdd();
+                    });
+                } else {
+                  impluxLastCartAddSkus = [];
+                  impluxNotifyCartAdd();
+                }
               }
             } catch (e1) {}
             return res;
@@ -138,6 +195,14 @@
         xhr.addEventListener('load', function() {
           try {
             if (xhr.status >= 200 && xhr.status < 300 && /\/cart\/add/i.test(String(xhr.__impluxUrl || ''))) {
+              impluxLastCartAddSkus = [];
+              var txt = xhr.responseText || '';
+              var ct = (xhr.getResponseHeader && xhr.getResponseHeader('Content-Type')) || '';
+              if (ct.indexOf('application/json') !== -1 || /^\s*\{/.test(txt)) {
+                try {
+                  impluxLastCartAddSkus = impluxExtractSkusFromCartAddJson(JSON.parse(txt));
+                } catch (parseErr) {}
+              }
               impluxNotifyCartAdd();
             }
           } catch (e2) {}
@@ -152,7 +217,10 @@
         var form = e.target;
         if (!form || !form.action) return;
         if (/\/cart\/add/i.test(String(form.action))) {
-          setTimeout(impluxNotifyCartAdd, 900);
+          setTimeout(function() {
+            impluxLastCartAddSkus = [];
+            impluxNotifyCartAdd();
+          }, 900);
         }
       },
       true
@@ -277,9 +345,46 @@
     function onCartAdd() {
       if (!matchesPageTarget(tc)) return;
       if (!matchesDevice(tc)) return;
-      setTimeout(function() {
-        checkCartAndShow(campaign);
-      }, delay);
+      var allow = impluxParseUpsellSkuAllowlist(tc);
+      function go() {
+        setTimeout(function() {
+          checkCartAndShow(campaign);
+        }, delay);
+      }
+      if (!allow.length) {
+        go();
+        return;
+      }
+      var fromAdd = impluxLastCartAddSkus && impluxLastCartAddSkus.length ? impluxLastCartAddSkus.slice() : [];
+      impluxLastCartAddSkus = [];
+      var matched = false;
+      for (var i = 0; i < fromAdd.length; i++) {
+        var n = impluxSkuNorm(fromAdd[i]);
+        if (n && allow.indexOf(n) !== -1) {
+          matched = true;
+          break;
+        }
+      }
+      if (matched) {
+        go();
+        return;
+      }
+      if (fromAdd.length) return;
+      fetch('/cart.js')
+        .then(function(r) {
+          return r.json();
+        })
+        .then(function(cart) {
+          if (!cart || !Array.isArray(cart.items)) return;
+          for (var j = 0; j < cart.items.length; j++) {
+            var sku = impluxSkuNorm(cart.items[j].sku);
+            if (sku && allow.indexOf(sku) !== -1) {
+              go();
+              return;
+            }
+          }
+        })
+        .catch(function() {});
     }
 
     impluxUpsellCartHandlers.push(onCartAdd);
