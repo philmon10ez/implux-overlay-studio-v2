@@ -1,0 +1,13 @@
+{
+  "name": "implux-overlay-studio",
+  "private": true,
+  "description": "Monorepo root. Railway: set API service Root Directory to overlay-studio/backend (recommended). If a service builds from the repo root, this file lets Railpack install and start the backend. Remix/Shopify services must use Root Directory overlay-studio/shopify-app.",
+  "scripts": {
+    "postinstall": "npm install --prefix overlay-studio/backend",
+    "build": "npm run db:generate --prefix overlay-studio/backend",
+    "start": "node overlay-studio/backend/server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
