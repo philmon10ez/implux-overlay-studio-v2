@@ -19,15 +19,72 @@ model User {
   createdAt DateTime @default(now())
 }
 
+enum PlacementType {
+  product_page
+  cart
+  checkout
+}
+
 model Merchant {
-  id            Int        @id @default(autoincrement())
-  storeName     String
-  shopifyDomain String     @unique
-  accessToken   String
-  rakutenMid    String?
-  status        String     @default("active")
-  campaigns     Campaign[]
-  createdAt     DateTime   @default(now())
+  id                 Int                 @id @default(autoincrement())
+  storeName          String
+  shopifyDomain      String              @unique
+  accessToken        String
+  rakutenMid         String?
+  status             String              @default("active")
+  campaigns          Campaign[]
+  products           Product[]
+  recommendationSets RecommendationSet[]
+  createdAt          DateTime            @default(now())
+}
+
+model Product {
+  id           Int                        @id @default(autoincrement())
+  merchantId   Int
+  merchant     Merchant                   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  title        String
+  imageUrl     String?
+  price        Decimal?                   @db.Decimal(12, 2)
+  productUrl   String
+  sku          String?
+  category     String?
+  metadata     Json?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  setLinks     RecommendationSetProduct[]
+
+  @@index([merchantId])
+  @@unique([merchantId, sku])
+}
+
+model RecommendationSet {
+  id                Int                        @id @default(autoincrement())
+  merchantId        Int
+  merchant          Merchant                   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  name              String
+  placementType     PlacementType
+  triggerConditions Json                       @default("{}")
+  frequencyCap      Json?
+  presetKey         String?
+  presetMetadata    Json?
+  status            String                     @default("draft")
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  productLinks      RecommendationSetProduct[]
+
+  @@index([merchantId])
+}
+
+model RecommendationSetProduct {
+  id                  Int               @id @default(autoincrement())
+  recommendationSetId Int
+  recommendationSet   RecommendationSet @relation(fields: [recommendationSetId], references: [id], onDelete: Cascade)
+  productId           Int
+  product             Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sortOrder           Int               @default(0)
+
+  @@unique([recommendationSetId, productId])
+  @@index([productId])
 }
 
 model Campaign {
@@ -40,6 +97,8 @@ model Campaign {
   triggerConfig     Json
   designConfig      Json
   promoCode         String?
+  promoConfig       Json?
+  frequencyCap      Json?
   impressions       Int             @default(0)
   clicks            Int             @default(0)
   conversions       Int             @default(0)

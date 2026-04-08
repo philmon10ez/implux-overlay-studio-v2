@@ -1,6 +1,16 @@
 import { useEffect } from 'react';
 
-export default function ConfirmModal({ open, title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', onConfirm, onCancel, danger }) {
+export default function ConfirmModal({
+  open,
+  title,
+  message,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  onConfirm,
+  onCancel,
+  danger,
+  error,
+}) {
   useEffect(() => {
     const fn = (e) => e.key === 'Escape' && onCancel?.();
     if (open) window.addEventListener('keydown', fn);
@@ -17,6 +27,11 @@ export default function ConfirmModal({ open, title, message, confirmLabel = 'Con
       >
         <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
         {message && <p className="mt-2 text-sm text-gray-600">{message}</p>}
+        {error ? (
+          <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+            {error}
+          </p>
+        ) : null}
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"

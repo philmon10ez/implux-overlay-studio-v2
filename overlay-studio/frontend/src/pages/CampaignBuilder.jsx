@@ -1,111 +1,52 @@
+/**
+ * Campaign wizard — steps live in src/features/campaign-builder/steps/.
+ * See FEATURE_ROADMAP.md (repo root) for further context / CampaignBuilderContext.
+ */
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../lib/api';
-import OverlayPreview from '../components/OverlayPreview';
+import {
+  STEPS,
+  defaultTrigger,
+  defaultDesign,
+  defaultPromo,
+} from '../features/campaign-builder/constants';
+import {
+  defaultFrequencyCapForm,
+  mergeFrequencyCapFromApi,
+  frequencyCapFormFromLegacyTrigger,
+  frequencyCapFormToPayload,
+} from '../lib/frequencyCapForm';
+import SetupStep from '../features/campaign-builder/steps/SetupStep';
+import TriggerRulesStep from '../features/campaign-builder/steps/TriggerRulesStep';
+import DesignerStep from '../features/campaign-builder/steps/DesignerStep';
+import PromoStep from '../features/campaign-builder/steps/PromoStep';
+import ReviewStep from '../features/campaign-builder/steps/ReviewStep';
 
-const STEPS = ['Setup', 'Trigger Rules', 'Designer', 'Promo Code', 'Review'];
-const TYPES = [
-  { id: 'exit_intent', label: 'Exit Intent Popup', icon: '🚪' },
-  { id: 'time_delay', label: 'Time Delay Popup', icon: '⏱' },
-  { id: 'scroll_depth', label: 'Scroll Depth Popup', icon: '📜' },
-  { id: 'welcome_mat', label: 'Welcome Mat (full-screen)', icon: '🛋' },
-  { id: 'upsell_modal', label: 'Upsell / Cross-sell Modal', icon: '🛒' },
-  { id: 'promo_banner', label: 'Promo Code Banner', icon: '🏷' },
-  { id: 'spin_wheel', label: 'Spin-to-Win Wheel', icon: '🎡' },
-  { id: 'sticky_footer', label: 'Sticky Footer Bar', icon: '📌' },
-];
-
-const defaultTrigger = {
-  sensitivity: 'medium',
-  timeDelaySeconds: 5,
-  scrollDepthPercent: 50,
-  pageTargeting: 'all',
-  customUrlRegex: '',
-  deviceDesktop: true,
-  deviceMobile: true,
-  deviceTablet: true,
-  frequencyCap: 'once_per_session',
-  cartValueFilter: false,
-  cartValueMin: 0,
-  /** scroll_depth: if page has almost no scroll room */
-  scrollShortPageBehavior: 'immediate',
-  /** Fire when visitor is already past threshold on load (e.g. return visit mid-page) */
-  scrollEvaluateOnLoad: true,
-  welcomeMatDelayMs: 0,
-  welcomeMatBackdropDismiss: true,
-  /** upsell_modal: wait after successful /cart/add before showing modal */
-  upsellAfterAddDelayMs: 500,
-  /** upsell_modal: optional variant SKUs (comma / newline / semicolon); modal only when added line matches */
-  upsellSkuAllowlist: '',
-  /** promo_banner / sticky_footer: delay before bar slides in */
-  persistentBarDelayMs: 0,
-  /** spin_wheel: time_delay | scroll_depth | exit_intent */
-  spinWheelTrigger: 'time_delay',
-};
-
-const defaultDesign = {
-  background: '#ffffff',
-  backgroundOpacity: 0.95,
-  size: 'medium',
-  position: 'center',
-  headline: 'Welcome!',
-  headlineSize: 24,
-  headlineBold: true,
-  headlineColor: '#1f2937',
-  subheadline: '',
-  subheadlineSize: 16,
-  subheadlineColor: '#6b7280',
-  body: 'Get 10% off your first order.',
-  bodySize: 14,
-  bodyColor: '#4b5563',
-  ctaText: 'Get Offer',
-  ctaAction: 'copy_promo',
-  ctaUrl: '',
-  ctaBgColor: '#6c63ff',
-  ctaTextColor: '#ffffff',
-  ctaBorderRadius: 8,
-  secondaryCtaText: 'No thanks',
-  imageDataUrl: '',
-  showCloseButton: true,
-  closeDelay: 0,
-  animation: 'fade',
-  /** Exit intent: two-step gate → offer */
-  exitTwoStep: true,
-  exitGateHeadline: 'Wait — before you go…',
-  exitGateSubheadline: 'You’re about to leave empty-handed',
-  exitGateBody:
-    'Are you sure? We’ve reserved an exclusive discount if you stay and complete your order.',
-  exitStayCtaText: 'Yes, show me the offer',
-  exitLeaveCtaText: 'No thanks, exit',
-  exitGateStayBgColor: '#6c63ff',
-  exitGateStayTextColor: '#ffffff',
-  exitGateLeaveColor: '#6b7280',
-  exitOfferEyebrow: 'Special offer',
-  exitOfferEyebrowColor: '#6c63ff',
-  /** welcome_mat: max width (px) of text block on large screens; panel is still full viewport */
-  welcomeMatInnerMaxPx: 640,
-  /** promo_banner: top | bottom edge */
-  barEdge: 'top',
-  showPromoInBar: true,
-  /** spin_wheel */
-  spinSegments: [
-    { label: '10% off', weight: 1, code: '' },
-    { label: 'Free shipping', weight: 1, code: '' },
-    { label: 'Bonus offer', weight: 1, code: '' },
-    { label: 'Try again', weight: 1, code: '' },
-  ],
-  spinRequireEmail: false,
-  spinTitle: 'Spin to win!',
-  spinSubtitle: 'Enter your email, then spin for an exclusive reward.',
-  spinButtonLabel: 'Spin the wheel',
-};
-
-const defaultPromo = {
-  code: '',
-  autoCopy: false,
-  injectIntoCartUrl: false,
-  expiryDate: '',
-};
+function buildPayload({
+  name,
+  merchantId,
+  type,
+  triggerConfig,
+  designConfig,
+  promoConfig,
+  promoCode,
+  frequencyCap,
+  status,
+}) {
+  const payload = {
+    name: name || 'Untitled Campaign',
+    merchantId: parseInt(merchantId, 10),
+    type,
+    triggerConfig,
+    designConfig,
+    promoCode: promoConfig.code || promoCode || null,
+    promoConfig,
+    frequencyCap: frequencyCapFormToPayload(frequencyCap),
+  };
+  if (status !== undefined) payload.status = status;
+  return payload;
+}
 
 export default function CampaignBuilder() {
   const navigate = useNavigate();
@@ -122,6 +63,7 @@ export default function CampaignBuilder() {
   const [promoCode, setPromoCode] = useState('');
   const [promoConfig, setPromoConfig] = useState(defaultPromo);
   const [showPromoStep, setShowPromoStep] = useState(false);
+  const [frequencyCap, setFrequencyCap] = useState(defaultFrequencyCapForm);
   const [mobilePreview, setMobilePreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(isEdit);
@@ -142,17 +84,24 @@ export default function CampaignBuilder() {
         setTriggerConfig({ ...defaultTrigger, ...(c.triggerConfig || {}) });
         setDesignConfig({ ...defaultDesign, ...(c.designConfig || {}) });
         setPromoCode(c.promoCode || '');
-        setPromoConfig({ ...defaultPromo, ...(c.promoConfig || {}) });
+        const mergedPromo = { ...defaultPromo, ...(c.promoConfig || {}) };
+        if (!mergedPromo.code && c.promoCode) mergedPromo.code = c.promoCode;
+        setPromoConfig(mergedPromo);
         setShowPromoStep(
           !!c.promoCode ||
             c.type === 'promo_banner' ||
             c.type === 'sticky_footer' ||
             c.type === 'spin_wheel'
         );
+        if (c.frequencyCap != null && typeof c.frequencyCap === 'object') {
+          setFrequencyCap(mergeFrequencyCapFromApi(c.frequencyCap));
+        } else {
+          setFrequencyCap(frequencyCapFormFromLegacyTrigger(c.triggerConfig?.frequencyCap));
+        }
       })
       .catch(() => navigate('/campaigns'))
       .finally(() => setLoading(false));
-  }, [id, isEdit]);
+  }, [id, isEdit, navigate]);
 
   const setupComplete = () => {
     const mid = parseInt(merchantId, 10);
@@ -183,15 +132,17 @@ export default function CampaignBuilder() {
       return;
     }
     setSaving(true);
-    const payload = {
-      name: name || 'Untitled Campaign',
-      merchantId: parseInt(merchantId, 10),
+    const payload = buildPayload({
+      name,
+      merchantId,
       type,
       triggerConfig,
       designConfig,
-      promoCode: promoConfig.code || promoCode || null,
+      promoConfig,
+      promoCode,
+      frequencyCap,
       status: 'draft',
-    };
+    });
     if (isEdit) {
       api.campaigns
         .update(id, payload)
@@ -214,14 +165,16 @@ export default function CampaignBuilder() {
       return;
     }
     setSaving(true);
-    const payload = {
-      name: name || 'Untitled Campaign',
-      merchantId: parseInt(merchantId, 10),
+    const payload = buildPayload({
+      name,
+      merchantId,
       type,
       triggerConfig,
       designConfig,
-      promoCode: promoConfig.code || promoCode || null,
-    };
+      promoConfig,
+      promoCode,
+      frequencyCap,
+    });
     const run = () => {
       if (isEdit && id) {
         return api.campaigns.update(id, payload).then(() => api.campaigns.publish(id));
@@ -240,7 +193,6 @@ export default function CampaignBuilder() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900">{isEdit ? 'Edit Campaign' : 'New Campaign'}</h1>
 
-      {/* Progress bar */}
       <div className="mt-6 flex gap-2">
         {STEPS.map((label, i) => (
           <button
@@ -257,1267 +209,76 @@ export default function CampaignBuilder() {
       </div>
 
       <div className="mt-8 rounded-lg bg-white p-6 shadow-card">
-        {/* Step 1 — Setup */}
         {step === 1 && (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Campaign Name</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Homepage Exit Intent"
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Merchant</label>
-              <select
-                value={merchantId}
-                onChange={(e) => setMerchantId(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
-              >
-                <option value="">Select merchant</option>
-                {merchants.map((m) => (
-                  <option key={m.id} value={m.id}>{m.storeName}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Campaign Type</label>
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {TYPES.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => {
-                      setType(t.id);
-                      if (t.id === 'promo_banner') {
-                        setShowPromoStep(true);
-                        setTriggerConfig((tr) => ({
-                          ...tr,
-                          persistentBarDelayMs: tr.persistentBarDelayMs ?? 0,
-                        }));
-                        setDesignConfig((d) => ({
-                          ...d,
-                          barEdge: d.barEdge || 'top',
-                          showPromoInBar: d.showPromoInBar !== false,
-                          headline: d.headline || 'Limited time — save at checkout',
-                          body: d.body || 'Apply your exclusive code before it expires.',
-                          ctaText: d.ctaText || 'Copy code',
-                          ctaAction: 'copy_promo',
-                          position: 'top-bar',
-                        }));
-                      } else if (t.id === 'sticky_footer') {
-                        setShowPromoStep(true);
-                        setTriggerConfig((tr) => ({
-                          ...tr,
-                          persistentBarDelayMs: tr.persistentBarDelayMs ?? 0,
-                        }));
-                        setDesignConfig((d) => ({
-                          ...d,
-                          barEdge: 'bottom',
-                          showPromoInBar: d.showPromoInBar !== false,
-                          headline: d.headline || 'Special offer — shop today',
-                          body: d.body || 'Your discount code is ready at checkout.',
-                          ctaText: d.ctaText || 'Copy code',
-                          ctaAction: 'copy_promo',
-                          position: 'bottom-bar',
-                        }));
-                      } else if (t.id === 'spin_wheel') {
-                        setShowPromoStep(true);
-                        setDesignConfig((d) => ({
-                          ...d,
-                          spinTitle: d.spinTitle || d.headline || 'Spin to win!',
-                          spinSubtitle:
-                            d.spinSubtitle ||
-                            d.subheadline ||
-                            'Enter your email, then spin for a reward.',
-                          spinButtonLabel: d.spinButtonLabel || d.ctaText || 'Spin the wheel',
-                          headline: d.headline || 'Spin to win!',
-                          ctaAction: d.ctaAction || 'copy_promo',
-                        }));
-                        setTriggerConfig((tr) => ({
-                          ...tr,
-                          spinWheelTrigger: tr.spinWheelTrigger || 'time_delay',
-                          timeDelaySeconds: tr.timeDelaySeconds ?? 5,
-                          scrollDepthPercent: tr.scrollDepthPercent ?? 50,
-                        }));
-                      }
-                    }}
-                    className={`flex flex-col items-center rounded-lg border-2 p-4 text-center transition ${
-                      type === t.id ? 'border-accent bg-accent/10' : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <span className="text-2xl">{t.icon}</span>
-                    <span className="mt-2 text-xs font-medium">{t.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <SetupStep
+            name={name}
+            setName={setName}
+            merchantId={merchantId}
+            setMerchantId={setMerchantId}
+            merchants={merchants}
+            type={type}
+            setType={setType}
+            setShowPromoStep={setShowPromoStep}
+            setTriggerConfig={setTriggerConfig}
+            setDesignConfig={setDesignConfig}
+          />
         )}
-
-        {/* Step 2 — Trigger Rules */}
         {step === 2 && (
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-4">
-              {type === 'exit_intent' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Sensitivity</label>
-                  <select
-                    value={triggerConfig.sensitivity}
-                    onChange={(e) => setTriggerConfig((t) => ({ ...t, sensitivity: e.target.value }))}
-                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                  >
-                    <option value="low">Low (cursor must reach top edge)</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High (triggers sooner near top)</option>
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Uses mouse movement toward the top of the page (desktop). Mobile browsers do not support true exit intent; use other campaign types for mobile-only flows if needed.
-                  </p>
-                </div>
-              )}
-              {type === 'time_delay' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Delay (seconds)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={triggerConfig.timeDelaySeconds}
-                    onChange={(e) => setTriggerConfig((t) => ({ ...t, timeDelaySeconds: Number(e.target.value) || 0 }))}
-                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                  />
-                </div>
-              )}
-              {type === 'scroll_depth' && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 space-y-4">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900">Scroll depth trigger</h3>
-                    <p className="mt-1 text-xs text-gray-600 leading-relaxed">
-                      The popup runs after a visitor has scrolled down a set portion of the page — a signal they are
-                      engaged. Higher percentages (e.g. 65–80%) target readers who consume more content; lower values
-                      (e.g. 35–50%) cast a wider net. Pair with a timely offer, related products, or a lead capture in
-                      the Designer step.
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Depth threshold</label>
-                    <p className="mt-0.5 text-xs text-gray-500">Percent of total scroll distance (top to bottom).</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {[40, 50, 65, 75, 90].map((p) => (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => setTriggerConfig((t) => ({ ...t, scrollDepthPercent: p }))}
-                          className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                            triggerConfig.scrollDepthPercent === p
-                              ? 'border-accent bg-accent text-white'
-                              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                          }`}
-                        >
-                          {p}%
-                        </button>
-                      ))}
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={100}
-                      value={Math.min(100, Math.max(1, Number(triggerConfig.scrollDepthPercent) || 50))}
-                      onChange={(e) =>
-                        setTriggerConfig((t) => ({ ...t, scrollDepthPercent: Number(e.target.value) }))
-                      }
-                      className="mt-3 w-full"
-                    />
-                    <div className="mt-1 flex items-center justify-between gap-2">
-                      <span className="text-sm text-gray-600">{triggerConfig.scrollDepthPercent ?? 50}%</span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={triggerConfig.scrollDepthPercent ?? 50}
-                        onChange={(e) =>
-                          setTriggerConfig((t) => ({
-                            ...t,
-                            scrollDepthPercent: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
-                          }))
-                        }
-                        className="w-20 rounded border border-gray-300 px-2 py-1 text-sm text-right"
-                        aria-label="Scroll depth percent"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Short pages (little or no scroll)</label>
-                    <p className="mt-0.5 text-xs text-gray-500">
-                      Some landing pages barely scroll. Choose whether to show the popup anyway or only when real
-                      scroll depth exists.
-                    </p>
-                    <select
-                      value={triggerConfig.scrollShortPageBehavior || 'immediate'}
-                      onChange={(e) =>
-                        setTriggerConfig((t) => ({ ...t, scrollShortPageBehavior: e.target.value }))
-                      }
-                      className="mt-2 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                    >
-                      <option value="immediate">Show popup (treat as fully scrolled)</option>
-                      <option value="never">Do not show on non-scrollable pages</option>
-                    </select>
-                  </div>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={triggerConfig.scrollEvaluateOnLoad !== false}
-                      onChange={(e) =>
-                        setTriggerConfig((t) => ({ ...t, scrollEvaluateOnLoad: e.target.checked }))
-                      }
-                    />
-                    <span className="text-sm text-gray-800">
-                      Trigger if visitor is already past the threshold when the page loads
-                    </span>
-                  </label>
-                </div>
-              )}
-              {type === 'welcome_mat' && (
-                <div className="rounded-lg border border-violet-200 bg-violet-50/70 p-4 space-y-4">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900">Welcome mat timing</h3>
-                    <p className="mt-1 text-xs text-gray-600 leading-relaxed">
-                      The welcome mat covers the full screen as soon as the visitor lands (after any delay below). Use
-                      it for strong promotions, announcements, or email capture — pair with a clear primary action and
-                      an easy &quot;continue browsing&quot; link in the Designer (secondary CTA).
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Delay before show (ms)</label>
-                    <p className="mt-0.5 text-xs text-gray-500">0 = immediate. Small delays (200–800ms) can feel smoother after paint.</p>
-                    <input
-                      type="number"
-                      min={0}
-                      max={60000}
-                      step={100}
-                      value={triggerConfig.welcomeMatDelayMs ?? 0}
-                      onChange={(e) =>
-                        setTriggerConfig((t) => ({
-                          ...t,
-                          welcomeMatDelayMs: Math.min(60000, Math.max(0, Number(e.target.value) || 0)),
-                        }))
-                      }
-                      className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={triggerConfig.welcomeMatBackdropDismiss !== false}
-                      onChange={(e) =>
-                        setTriggerConfig((t) => ({ ...t, welcomeMatBackdropDismiss: e.target.checked }))
-                      }
-                    />
-                    <span className="text-sm text-gray-800">Allow closing by clicking the dimmed area behind the mat</span>
-                  </label>
-                </div>
-              )}
-              {type === 'upsell_modal' && (
-                <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-4 space-y-4">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900">Upsell / cross-sell timing</h3>
-                    <p className="mt-1 text-xs text-gray-600 leading-relaxed">
-                      This modal runs after Shopify confirms an <strong>add to cart</strong> (Ajax <code className="rounded bg-white/80 px-1">/cart/add</code>
-                      ). Use it to suggest add-ons, bundles, or upgrades while purchase intent is high. Use{' '}
-                      <strong>Page targeting</strong> below to limit by path (e.g. product pages or a <strong>custom URL</strong> regex for a vendor product).{' '}
-                      Use <strong>Variant SKUs</strong> to tie this campaign to specific products (matches each variant&apos;s SKU in Shopify).{' '}
-                      <strong>Frequency cap</strong> avoids nagging (e.g. once per session).
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Delay after add to cart (ms)</label>
-                    <p className="mt-0.5 text-xs text-gray-500">
-                      Short delay lets the theme update the cart drawer or button state before your modal appears.
-                    </p>
-                    <input
-                      type="number"
-                      min={0}
-                      max={15000}
-                      step={100}
-                      value={triggerConfig.upsellAfterAddDelayMs ?? 500}
-                      onChange={(e) =>
-                        setTriggerConfig((t) => ({
-                          ...t,
-                          upsellAfterAddDelayMs: Math.min(15000, Math.max(0, Number(e.target.value) || 0)),
-                        }))
-                      }
-                      className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Variant SKUs (optional)</label>
-                    <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">
-                      If you list SKUs, this modal only appears when the item just added uses a matching variant SKU (case-insensitive). Leave blank to
-                      fire for any add-to-cart that passes page and device rules. Combine with <strong>Custom URL</strong> or <strong>Product pages</strong>{' '}
-                      to align with specific vendor product URLs.
-                    </p>
-                    <textarea
-                      value={triggerConfig.upsellSkuAllowlist ?? ''}
-                      onChange={(e) => setTriggerConfig((t) => ({ ...t, upsellSkuAllowlist: e.target.value }))}
-                      placeholder={'e.g. VENDOR-TEE-BLK-S\nVENDOR-MUG-01'}
-                      rows={4}
-                      className="mt-1 w-full max-w-lg rounded border border-gray-300 px-3 py-2 text-sm font-mono"
-                    />
-                  </div>
-                </div>
-              )}
-              {(type === 'promo_banner' || type === 'sticky_footer') && (
-                <div className="rounded-lg border border-teal-200 bg-teal-50/70 p-4 space-y-4">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900">Persistent bar</h3>
-                    <p className="mt-1 text-xs text-gray-600 leading-relaxed">
-                      {type === 'promo_banner'
-                        ? 'A slim bar at the top or bottom of the page stays visible as shoppers browse — ideal for sitewide codes, free shipping, or seasonal sales. It does not dim the page.'
-                        : 'A fixed strip at the bottom of the viewport stays in view while scrolling — great for CTAs, codes, and reminders without blocking content.'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Delay before bar appears (ms)</label>
-                    <p className="mt-0.5 text-xs text-gray-500">0 = as soon as targeting rules pass. Small delays (200–800ms) can feel smoother after load.</p>
-                    <input
-                      type="number"
-                      min={0}
-                      max={60000}
-                      step={100}
-                      value={triggerConfig.persistentBarDelayMs ?? 0}
-                      onChange={(e) =>
-                        setTriggerConfig((t) => ({
-                          ...t,
-                          persistentBarDelayMs: Math.min(60000, Math.max(0, Number(e.target.value) || 0)),
-                        }))
-                      }
-                      className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
-                    />
-                  </div>
-                </div>
-              )}
-              {type === 'spin_wheel' && (
-                <div className="rounded-lg border border-fuchsia-200 bg-fuchsia-50/70 p-4 space-y-4">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900">Spin wheel — when to show</h3>
-                    <p className="mt-1 text-xs text-gray-600 leading-relaxed">
-                      The wheel opens as a focused popup after the trigger you choose. Pair with the Designer (wheel copy) and Promo Code step for rewards shoppers can redeem at checkout.
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Trigger</label>
-                    <select
-                      value={triggerConfig.spinWheelTrigger || 'time_delay'}
-                      onChange={(e) =>
-                        setTriggerConfig((t) => ({ ...t, spinWheelTrigger: e.target.value }))
-                      }
-                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                    >
-                      <option value="time_delay">Time on site</option>
-                      <option value="scroll_depth">Scroll depth</option>
-                      <option value="exit_intent">Exit intent (desktop)</option>
-                    </select>
-                  </div>
-                  {triggerConfig.spinWheelTrigger === 'exit_intent' && (
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Sensitivity</label>
-                        <select
-                          value={triggerConfig.sensitivity}
-                          onChange={(e) => setTriggerConfig((t) => ({ ...t, sensitivity: e.target.value }))}
-                          className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                        >
-                          <option value="low">Low</option>
-                          <option value="medium">Medium</option>
-                          <option value="high">High</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Delay on mobile / touch (seconds)</label>
-                        <p className="mt-0.5 text-xs text-gray-500">
-                          Exit intent only works with a mouse on desktop. Phones and tablets use this timer instead.
-                        </p>
-                        <input
-                          type="number"
-                          min={1}
-                          max={120}
-                          value={triggerConfig.timeDelaySeconds ?? 8}
-                          onChange={(e) =>
-                            setTriggerConfig((t) => ({
-                              ...t,
-                              timeDelaySeconds: Math.min(120, Math.max(1, Number(e.target.value) || 8)),
-                            }))
-                          }
-                          className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {triggerConfig.spinWheelTrigger === 'time_delay' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Delay (seconds)</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={triggerConfig.timeDelaySeconds}
-                        onChange={(e) =>
-                          setTriggerConfig((t) => ({
-                            ...t,
-                            timeDelaySeconds: Number(e.target.value) || 0,
-                          }))
-                        }
-                        className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                      />
-                    </div>
-                  )}
-                  {triggerConfig.spinWheelTrigger === 'scroll_depth' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Scroll depth (%)</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={triggerConfig.scrollDepthPercent ?? 50}
-                        onChange={(e) =>
-                          setTriggerConfig((t) => ({
-                            ...t,
-                            scrollDepthPercent: Math.min(100, Math.max(1, Number(e.target.value) || 50)),
-                          }))
-                        }
-                        className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Page Targeting</label>
-                <div className="mt-2 space-y-2">
-                  {['all', 'homepage', 'product', 'cart', 'custom'].map((v) => (
-                    <label key={v} className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="pageTargeting"
-                        checked={triggerConfig.pageTargeting === v}
-                        onChange={() => setTriggerConfig((t) => ({ ...t, pageTargeting: v }))}
-                      />
-                      <span className="capitalize">{v === 'all' ? 'All Pages' : v === 'product' ? 'Product Pages' : v === 'cart' ? 'Cart Page' : v === 'custom' ? 'Custom URL' : 'Homepage'}</span>
-                    </label>
-                  ))}
-                </div>
-                {triggerConfig.pageTargeting === 'custom' && (
-                  <input
-                    value={triggerConfig.customUrlRegex}
-                    onChange={(e) => setTriggerConfig((t) => ({ ...t, customUrlRegex: e.target.value }))}
-                    placeholder="Regex pattern"
-                    className="mt-2 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                  />
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Device Targeting</label>
-                <div className="mt-2 flex gap-4">
-                  {['Desktop', 'Mobile', 'Tablet'].map((d) => {
-                    const key = `device${d.charAt(0)}${d.slice(1).toLowerCase()}`;
-                    const k = key === 'deviceDesktop' ? 'deviceDesktop' : key === 'deviceMobile' ? 'deviceMobile' : 'deviceTablet';
-                    return (
-                      <label key={d} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={triggerConfig[k]}
-                          onChange={(e) => setTriggerConfig((t) => ({ ...t, [k]: e.target.checked }))}
-                        />
-                        {d}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Frequency Cap</label>
-                <select
-                  value={triggerConfig.frequencyCap}
-                  onChange={(e) => setTriggerConfig((t) => ({ ...t, frequencyCap: e.target.value }))}
-                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                >
-                  <option value="once_per_session">Once per session</option>
-                  <option value="once_per_day">Once per day</option>
-                  <option value="once_ever">Once ever</option>
-                  <option value="always">Always</option>
-                </select>
-              </div>
-              <div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={triggerConfig.cartValueFilter}
-                    onChange={(e) => setTriggerConfig((t) => ({ ...t, cartValueFilter: e.target.checked }))}
-                  />
-                  Show only if cart &gt; $X
-                </label>
-                {triggerConfig.cartValueFilter && (
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={triggerConfig.cartValueMin}
-                    onChange={(e) => setTriggerConfig((t) => ({ ...t, cartValueMin: Number(e.target.value) || 0 }))}
-                    className="mt-2 w-32 rounded border border-gray-300 px-3 py-2"
-                  />
-                )}
-              </div>
-            </div>
-          </div>
+          <TriggerRulesStep
+            type={type}
+            triggerConfig={triggerConfig}
+            setTriggerConfig={setTriggerConfig}
+            frequencyCap={frequencyCap}
+            setFrequencyCap={setFrequencyCap}
+          />
         )}
-
-        {/* Step 3 — Designer */}
         {step === 3 && (
-          <div className="flex gap-6">
-            <div className="w-[40%] space-y-4">
-              {type === 'exit_intent' && (
-                <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 space-y-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Exit intent flow</h3>
-                  <p className="text-xs text-gray-600">
-                    Shoppers first see a confirmation step when they move to leave the tab; if they choose to stay, they see your full offer below.
-                  </p>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={designConfig.exitTwoStep !== false}
-                      onChange={(e) =>
-                        setDesignConfig((d) => ({ ...d, exitTwoStep: e.target.checked }))
-                      }
-                    />
-                    <span className="text-sm font-medium text-gray-800">Two-step: confirm exit, then show offer</span>
-                  </label>
-                  {designConfig.exitTwoStep !== false && (
-                    <>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 uppercase tracking-wide">
-                          Gate — headline
-                        </label>
-                        <input
-                          value={designConfig.exitGateHeadline ?? ''}
-                          onChange={(e) =>
-                            setDesignConfig((d) => ({ ...d, exitGateHeadline: e.target.value }))
-                          }
-                          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 uppercase tracking-wide">
-                          Gate — subheadline
-                        </label>
-                        <input
-                          value={designConfig.exitGateSubheadline ?? ''}
-                          onChange={(e) =>
-                            setDesignConfig((d) => ({ ...d, exitGateSubheadline: e.target.value }))
-                          }
-                          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 uppercase tracking-wide">
-                          Gate — body
-                        </label>
-                        <textarea
-                          value={designConfig.exitGateBody ?? ''}
-                          onChange={(e) =>
-                            setDesignConfig((d) => ({ ...d, exitGateBody: e.target.value }))
-                          }
-                          rows={3}
-                          className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600">Stay — button label</label>
-                          <input
-                            value={designConfig.exitStayCtaText ?? ''}
-                            onChange={(e) =>
-                              setDesignConfig((d) => ({ ...d, exitStayCtaText: e.target.value }))
-                            }
-                            className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600">Leave — button label</label>
-                          <input
-                            value={designConfig.exitLeaveCtaText ?? ''}
-                            onChange={(e) =>
-                              setDesignConfig((d) => ({ ...d, exitLeaveCtaText: e.target.value }))
-                            }
-                            className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap items-end gap-3">
-                        <div>
-                          <label className="block text-xs text-gray-600">Stay button fill</label>
-                          <input
-                            type="color"
-                            value={designConfig.exitGateStayBgColor || designConfig.ctaBgColor}
-                            onChange={(e) =>
-                              setDesignConfig((d) => ({ ...d, exitGateStayBgColor: e.target.value }))
-                            }
-                            className="mt-1 h-9 w-14 cursor-pointer rounded border"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-600">Stay text</label>
-                          <input
-                            type="color"
-                            value={designConfig.exitGateStayTextColor || designConfig.ctaTextColor}
-                            onChange={(e) =>
-                              setDesignConfig((d) => ({ ...d, exitGateStayTextColor: e.target.value }))
-                            }
-                            className="mt-1 h-9 w-14 cursor-pointer rounded border"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-600">Leave text color</label>
-                          <input
-                            type="color"
-                            value={designConfig.exitGateLeaveColor ?? '#6b7280'}
-                            onChange={(e) =>
-                              setDesignConfig((d) => ({ ...d, exitGateLeaveColor: e.target.value }))
-                            }
-                            className="mt-1 h-9 w-14 cursor-pointer rounded border"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
-                  <div className="border-t border-gray-200 pt-3">
-                    <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                      Offer screen (after they stay)
-                    </h4>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Customize headline, copy, image, and primary CTA below — this is your discount or incentive.
-                    </p>
-                    <div className="mt-2">
-                      <label className="block text-xs font-medium text-gray-600">Eyebrow / label (optional)</label>
-                      <input
-                        value={designConfig.exitOfferEyebrow ?? ''}
-                        onChange={(e) =>
-                          setDesignConfig((d) => ({ ...d, exitOfferEyebrow: e.target.value }))
-                        }
-                        placeholder="e.g. 15% off today only"
-                        className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                      />
-                      <input
-                        type="color"
-                        value={designConfig.exitOfferEyebrowColor ?? '#6c63ff'}
-                        onChange={(e) =>
-                          setDesignConfig((d) => ({ ...d, exitOfferEyebrowColor: e.target.value }))
-                        }
-                        className="mt-2 h-8 w-12 cursor-pointer rounded border"
-                        title="Eyebrow color"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-              {type === 'scroll_depth' && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-900">Scroll depth message</h3>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    Shoppers will only see this after they scroll past your threshold — use headline and body for a
-                    contextual offer, product recommendation, or email signup that matches the moment.
-                  </p>
-                </div>
-              )}
-              {type === 'welcome_mat' && (
-                <div className="rounded-lg border border-violet-200 bg-violet-50/70 p-4 space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-900">Full-screen welcome mat</h3>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    Content below is centered on a full-viewport layer. Use a bold headline, short body, and primary
-                    CTA; set <strong>Secondary CTA (dismiss)</strong> to something like &quot;Continue to site&quot; so
-                    shoppers can leave without friction. Background color and opacity fill the entire screen.
-                  </p>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600">Content max width (px)</label>
-                    <p className="mt-0.5 text-xs text-gray-500">Keeps text readable on wide monitors; the mat still fills the screen.</p>
-                    <input
-                      type="number"
-                      min={280}
-                      max={1200}
-                      step={20}
-                      value={designConfig.welcomeMatInnerMaxPx ?? 640}
-                      onChange={(e) =>
-                        setDesignConfig((d) => ({
-                          ...d,
-                          welcomeMatInnerMaxPx: Math.min(1200, Math.max(280, Number(e.target.value) || 640)),
-                        }))
-                      }
-                      className="mt-1 w-full max-w-xs rounded border border-gray-300 px-3 py-2 text-sm"
-                    />
-                  </div>
-                </div>
-              )}
-              {type === 'upsell_modal' && (
-                <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-4 space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-900">Upsell / cross-sell message</h3>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    Lead with a clear benefit (complete the look, save as a bundle, upgrade shipping). Primary CTA can
-                    link to a collection or product (<strong>Redirect URL</strong>); secondary dismiss keeps the flow
-                    light. Promo step can auto-copy a code when relevant.
-                  </p>
-                </div>
-              )}
-              {type === 'promo_banner' && (
-                <div className="rounded-lg border border-teal-200 bg-teal-50/70 p-4 space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-900">Promo code banner</h3>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    Keep headline and body short. The primary CTA often works best as <strong>Copy code</strong> so
-                    shoppers can paste at checkout. Choose top or bottom placement below.
-                  </p>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600">Bar placement</label>
-                    <select
-                      value={designConfig.barEdge || 'top'}
-                      onChange={(e) => setDesignConfig((d) => ({ ...d, barEdge: e.target.value }))}
-                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                    >
-                      <option value="top">Top of page</option>
-                      <option value="bottom">Bottom of page</option>
-                    </select>
-                  </div>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={designConfig.showPromoInBar !== false}
-                      onChange={(e) =>
-                        setDesignConfig((d) => ({ ...d, showPromoInBar: e.target.checked }))
-                      }
-                    />
-                    <span className="text-sm text-gray-800">Show promo code chip in the bar</span>
-                  </label>
-                </div>
-              )}
-              {type === 'sticky_footer' && (
-                <div className="rounded-lg border border-rose-200 bg-rose-50/70 p-4 space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-900">Sticky footer bar</h3>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    This bar is always fixed to the <strong>bottom</strong> of the viewport while visitors scroll. Use it
-                    for persistent offers, codes, or a single clear CTA.
-                  </p>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={designConfig.showPromoInBar !== false}
-                      onChange={(e) =>
-                        setDesignConfig((d) => ({ ...d, showPromoInBar: e.target.checked }))
-                      }
-                    />
-                    <span className="text-sm text-gray-800">Show promo code chip in the bar</span>
-                  </label>
-                </div>
-              )}
-              {type === 'spin_wheel' && (
-                <div className="rounded-lg border border-fuchsia-200 bg-fuchsia-50/70 p-4 space-y-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Spin-to-win wheel</h3>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    Shoppers see this popup after your trigger fires. Each slice can have its own label and optional
-                    override promo code; empty code uses the campaign code from the Promo Code step.
-                  </p>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600">Title</label>
-                    <input
-                      value={designConfig.spinTitle ?? ''}
-                      onChange={(e) => setDesignConfig((d) => ({ ...d, spinTitle: e.target.value }))}
-                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600">Subtitle</label>
-                    <input
-                      value={designConfig.spinSubtitle ?? ''}
-                      onChange={(e) => setDesignConfig((d) => ({ ...d, spinSubtitle: e.target.value }))}
-                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600">Spin button label</label>
-                    <input
-                      value={designConfig.spinButtonLabel ?? ''}
-                      onChange={(e) => setDesignConfig((d) => ({ ...d, spinButtonLabel: e.target.value }))}
-                      className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={!!designConfig.spinRequireEmail}
-                      onChange={(e) =>
-                        setDesignConfig((d) => ({ ...d, spinRequireEmail: e.target.checked }))
-                      }
-                    />
-                    <span className="text-sm text-gray-800">Require email before spinning</span>
-                  </label>
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-600">Wheel slices</span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDesignConfig((d) => ({
-                            ...d,
-                            spinSegments: [...(d.spinSegments || []), { label: 'New prize', weight: 1, code: '' }],
-                          }))
-                        }
-                        className="text-xs font-medium text-accent hover:underline"
-                      >
-                        Add slice
-                      </button>
-                    </div>
-                    <ul className="mt-2 space-y-2">
-                      {(designConfig.spinSegments || []).map((seg, idx) => (
-                        <li
-                          key={idx}
-                          className="flex flex-wrap items-end gap-2 rounded border border-gray-200 bg-white p-2"
-                        >
-                          <div className="min-w-[120px] flex-1">
-                            <label className="text-[10px] uppercase text-gray-500">Label</label>
-                            <input
-                              value={seg.label || ''}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                setDesignConfig((d) => {
-                                  const segs = [...(d.spinSegments || [])];
-                                  segs[idx] = { ...segs[idx], label: v };
-                                  return { ...d, spinSegments: segs };
-                                });
-                              }}
-                              className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                            />
-                          </div>
-                          <div className="w-20">
-                            <label className="text-[10px] uppercase text-gray-500">Weight</label>
-                            <input
-                              type="number"
-                              min={0.1}
-                              step={0.1}
-                              value={seg.weight ?? 1}
-                              onChange={(e) => {
-                                const w = Number(e.target.value) || 1;
-                                setDesignConfig((d) => {
-                                  const segs = [...(d.spinSegments || [])];
-                                  segs[idx] = { ...segs[idx], weight: w };
-                                  return { ...d, spinSegments: segs };
-                                });
-                              }}
-                              className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                            />
-                          </div>
-                          <div className="min-w-[100px] flex-1">
-                            <label className="text-[10px] uppercase text-gray-500">Code (optional)</label>
-                            <input
-                              value={seg.code || ''}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                setDesignConfig((d) => {
-                                  const segs = [...(d.spinSegments || [])];
-                                  segs[idx] = { ...segs[idx], code: v };
-                                  return { ...d, spinSegments: segs };
-                                });
-                              }}
-                              placeholder="Uses campaign code if empty"
-                              className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm font-mono"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDesignConfig((d) => ({
-                                ...d,
-                                spinSegments: (d.spinSegments || []).filter((_, i) => i !== idx),
-                              }))
-                            }
-                            disabled={(designConfig.spinSegments || []).length <= 2}
-                            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 disabled:opacity-40"
-                          >
-                            Remove
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Background</label>
-                <div className="mt-1 flex gap-2">
-                  <input
-                    type="color"
-                    value={designConfig.background}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, background: e.target.value }))}
-                    className="h-10 w-14 cursor-pointer rounded border"
-                  />
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={designConfig.backgroundOpacity}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, backgroundOpacity: Number(e.target.value) }))}
-                    className="flex-1"
-                  />
-                  <span className="text-sm">{Math.round(designConfig.backgroundOpacity * 100)}%</span>
-                </div>
-              </div>
-              {!['promo_banner', 'sticky_footer'].includes(type) && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Size</label>
-                  <div className="mt-1 flex gap-2">
-                    {['small', 'medium', 'large', 'full'].map((s) => (
-                      <label key={s} className="flex items-center gap-1">
-                        <input
-                          type="radio"
-                          name="size"
-                          checked={designConfig.size === s}
-                          onChange={() => setDesignConfig((d) => ({ ...d, size: s }))}
-                        />
-                        <span className="capitalize">{s}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {!['promo_banner', 'sticky_footer'].includes(type) && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Position</label>
-                  <select
-                    value={designConfig.position}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, position: e.target.value }))}
-                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                  >
-                    <option value="center">Center</option>
-                    <option value="bottom-bar">Bottom Bar</option>
-                    <option value="top-bar">Top Bar</option>
-                    <option value="bottom-right">Bottom Right</option>
-                    <option value="bottom-left">Bottom Left</option>
-                  </select>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Headline</label>
-                <input
-                  value={designConfig.headline}
-                  onChange={(e) => setDesignConfig((d) => ({ ...d, headline: e.target.value }))}
-                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                />
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={12}
-                    max={48}
-                    value={designConfig.headlineSize}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, headlineSize: Number(e.target.value) }))}
-                    className="w-16 rounded border px-2 py-1 text-sm"
-                  />
-                  <label className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={designConfig.headlineBold}
-                      onChange={(e) => setDesignConfig((d) => ({ ...d, headlineBold: e.target.checked }))}
-                    />
-                    Bold
-                  </label>
-                  <input
-                    type="color"
-                    value={designConfig.headlineColor}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, headlineColor: e.target.value }))}
-                    className="h-8 w-10 cursor-pointer rounded border"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Subheadline</label>
-                <input
-                  value={designConfig.subheadline}
-                  onChange={(e) => setDesignConfig((d) => ({ ...d, subheadline: e.target.value }))}
-                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                />
-                <div className="mt-1 flex gap-2">
-                  <input
-                    type="number"
-                    min={12}
-                    max={24}
-                    value={designConfig.subheadlineSize}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, subheadlineSize: Number(e.target.value) }))}
-                    className="w-16 rounded border px-2 py-1 text-sm"
-                  />
-                  <input
-                    type="color"
-                    value={designConfig.subheadlineColor}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, subheadlineColor: e.target.value }))}
-                    className="h-8 w-10 cursor-pointer rounded border"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Body</label>
-                <textarea
-                  value={designConfig.body}
-                  onChange={(e) => setDesignConfig((d) => ({ ...d, body: e.target.value }))}
-                  rows={3}
-                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                />
-                <div className="mt-1 flex gap-2">
-                  <input
-                    type="number"
-                    min={12}
-                    max={20}
-                    value={designConfig.bodySize}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, bodySize: Number(e.target.value) }))}
-                    className="w-16 rounded border px-2 py-1 text-sm"
-                  />
-                  <input
-                    type="color"
-                    value={designConfig.bodyColor}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, bodyColor: e.target.value }))}
-                    className="h-8 w-10 cursor-pointer rounded border"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">CTA Button</label>
-                <input
-                  value={designConfig.ctaText}
-                  onChange={(e) => setDesignConfig((d) => ({ ...d, ctaText: e.target.value }))}
-                  placeholder="Button text"
-                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                />
-                <select
-                  value={designConfig.ctaAction}
-                  onChange={(e) => setDesignConfig((d) => ({ ...d, ctaAction: e.target.value }))}
-                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                >
-                  <option value="redirect">Redirect URL</option>
-                  <option value="copy_promo">Copy Promo Code</option>
-                  <option value="close">Just Close</option>
-                </select>
-                {designConfig.ctaAction === 'redirect' && (
-                  <input
-                    value={designConfig.ctaUrl}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, ctaUrl: e.target.value }))}
-                    placeholder="https://..."
-                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                  />
-                )}
-                <div className="mt-2 flex gap-2">
-                  <input
-                    type="color"
-                    value={designConfig.ctaBgColor}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, ctaBgColor: e.target.value }))}
-                    className="h-8 w-10 cursor-pointer rounded border"
-                  />
-                  <input
-                    type="color"
-                    value={designConfig.ctaTextColor}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, ctaTextColor: e.target.value }))}
-                    className="h-8 w-10 cursor-pointer rounded border"
-                  />
-                  <label className="flex items-center gap-1 text-sm">
-                    Radius
-                    <input
-                      type="range"
-                      min={0}
-                      max={24}
-                      value={designConfig.ctaBorderRadius}
-                      onChange={(e) => setDesignConfig((d) => ({ ...d, ctaBorderRadius: Number(e.target.value) }))}
-                      className="w-20"
-                    />
-                  </label>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Secondary CTA (dismiss)</label>
-                <input
-                  value={designConfig.secondaryCtaText}
-                  onChange={(e) => setDesignConfig((d) => ({ ...d, secondaryCtaText: e.target.value }))}
-                  placeholder="No thanks"
-                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Image</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (!f) return;
-                    const r = new FileReader();
-                    r.onload = () => setDesignConfig((d) => ({ ...d, imageDataUrl: r.result }));
-                    r.readAsDataURL(f);
-                  }}
-                  className="mt-1 text-sm"
-                />
-              </div>
-              <div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={designConfig.showCloseButton}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, showCloseButton: e.target.checked }))}
-                  />
-                  Show close button
-                </label>
-                {designConfig.showCloseButton && (
-                  <input
-                    type="number"
-                    min={0}
-                    value={designConfig.closeDelay}
-                    onChange={(e) => setDesignConfig((d) => ({ ...d, closeDelay: Number(e.target.value) }))}
-                    placeholder="Delay (sec)"
-                    className="mt-1 w-24 rounded border px-2 py-1 text-sm"
-                  />
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Animation</label>
-                <select
-                  value={designConfig.animation}
-                  onChange={(e) => setDesignConfig((d) => ({ ...d, animation: e.target.value }))}
-                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                >
-                  <option value="fade">Fade In</option>
-                  <option value="slide-up">Slide Up</option>
-                  <option value="slide-down">Slide Down</option>
-                  <option value="bounce">Bounce</option>
-                  <option value="none">None</option>
-                </select>
-              </div>
-            </div>
-            <div className="w-[60%]">
-              <div className="mb-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setMobilePreview((m) => !m)}
-                  className="rounded border border-gray-300 px-3 py-1 text-sm"
-                >
-                  {mobilePreview ? 'Desktop' : 'Mobile'} view
-                </button>
-              </div>
-              <OverlayPreview
-                designConfig={designConfig}
-                mobile={mobilePreview}
-                campaignType={type}
-                previewPromoCode={promoConfig.code || promoCode || ''}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Step 4 — Promo (optional) */}
-        {step === 4 && (
-          <div className="space-y-4 max-w-md">
-            {(type === 'promo_banner' || type === 'sticky_footer' || type === 'spin_wheel') && (
-              <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                {type === 'spin_wheel'
-                  ? 'Set a primary promo code below as the default prize, or leave slice-specific codes in the Designer. Shoppers who land on a slice without a code will use this campaign code when provided.'
-                  : 'A clear, short code works best in the bar. Shoppers can copy it from the chip or your CTA.'}
-              </p>
-            )}
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={showPromoStep}
-                onChange={(e) => setShowPromoStep(e.target.checked)}
-              />
-              Enable promo code for this campaign
-            </label>
-            {showPromoStep && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Promo Code</label>
-                  <input
-                    value={promoConfig.code}
-                    onChange={(e) => setPromoConfig((p) => ({ ...p, code: e.target.value }))}
-                    placeholder="SAVE10"
-                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
-                  />
-                </div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={promoConfig.autoCopy}
-                    onChange={(e) => setPromoConfig((p) => ({ ...p, autoCopy: e.target.checked }))}
-                  />
-                  Auto-copy to clipboard on display
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={promoConfig.injectIntoCartUrl}
-                    onChange={(e) => setPromoConfig((p) => ({ ...p, injectIntoCartUrl: e.target.checked }))}
-                  />
-                  Inject promo into cart URL on CTA click
-                </label>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Expiry (optional)</label>
-                  <input
-                    type="date"
-                    value={promoConfig.expiryDate}
-                    onChange={(e) => setPromoConfig((p) => ({ ...p, expiryDate: e.target.value }))}
-                    className="mt-1 rounded border border-gray-300 px-3 py-2"
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Step 5 — Review */}
-        {step === 5 && (
           <div className="space-y-6">
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
-              <p><strong>Name:</strong> {name || '—'}</p>
-<p><strong>Merchant:</strong> {merchants.find((m) => m.id === parseInt(merchantId, 10))?.storeName ?? (merchantId || '—')}</p>
-                <p><strong>Type:</strong> {TYPES.find((t) => t.id === type)?.label ?? (type || '—')}</p>
-              <p><strong>Promo:</strong> {promoConfig.code || promoCode || 'None'}</p>
-              {type === 'upsell_modal' && (triggerConfig.upsellSkuAllowlist || '').trim() ? (
-                <p className="mt-2">
-                  <strong>SKU filter:</strong>{' '}
-                  <span className="font-mono text-xs whitespace-pre-wrap break-all">{(triggerConfig.upsellSkuAllowlist || '').trim()}</span>
-                </p>
-              ) : null}
+            <div className="max-w-2xl rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3 sm:px-5">
+              <p className="text-sm font-semibold text-gray-900">Design step</p>
+              <p className="mt-1 text-sm text-gray-600">
+                Adjust copy and layout on the left; the preview on the right updates live. Use{' '}
+                <span className="font-medium text-gray-800">Fine-tune appearance</span> only when you need fonts, colors,
+                or animation.
+              </p>
             </div>
-            <div>
-              <p className="mb-2 font-medium">Preview</p>
-              <OverlayPreview
-                designConfig={designConfig}
-                className="max-w-lg"
-                campaignType={type}
-                previewPromoCode={promoConfig.code || promoCode || ''}
-              />
-            </div>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={saveDraft}
-                disabled={saving}
-                className="rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Save as Draft
-              </button>
-              <button
-                type="button"
-                onClick={publish}
-                disabled={saving}
-                className="rounded-lg bg-accent px-4 py-2 font-medium text-white hover:bg-accent/90 disabled:opacity-50"
-              >
-                Publish Campaign
-              </button>
-            </div>
+            <DesignerStep
+              type={type}
+              designConfig={designConfig}
+              setDesignConfig={setDesignConfig}
+              mobilePreview={mobilePreview}
+              setMobilePreview={setMobilePreview}
+              promoConfig={promoConfig}
+              promoCode={promoCode}
+            />
           </div>
         )}
+        {step === 4 && (
+          <PromoStep
+            type={type}
+            showPromoStep={showPromoStep}
+            setShowPromoStep={setShowPromoStep}
+            promoConfig={promoConfig}
+            setPromoConfig={setPromoConfig}
+          />
+        )}
+        {step === 5 && (
+          <ReviewStep
+            name={name}
+            merchants={merchants}
+            merchantId={merchantId}
+            type={type}
+            triggerConfig={triggerConfig}
+            designConfig={designConfig}
+            promoConfig={promoConfig}
+            promoCode={promoCode}
+            frequencyCap={frequencyCap}
+            saveDraft={saveDraft}
+            publish={publish}
+            saving={saving}
+          />
+        )}
 
-        {/* Step nav */}
         <div className="mt-8 flex justify-between border-t pt-6">
           <button
             type="button"

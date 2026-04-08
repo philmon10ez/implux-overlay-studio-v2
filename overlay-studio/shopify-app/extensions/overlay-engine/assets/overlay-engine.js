@@ -88,6 +88,294 @@
     return normalizeCampaignType(t) === 'time_delay';
   }
 
+  /** UTC YYYY-MM-DD — same calendar day in UTC (aligned with backend `utcDateString`). */
+  function impluxUtcDateString(d) {
+    return (d || new Date()).toISOString().slice(0, 10);
+  }
+
+  var IMPLUX_LS_VID = 'implux_vid';
+  var IMPLUX_LS_FREQ = 'implux_fc_persist_v1';
+  var IMPLUX_SS_SESS = 'implux_fc_sess_v1';
+
+  function impluxEnsureVisitorId() {
+    try {
+      var v = localStorage.getItem(IMPLUX_LS_VID);
+      if (!v) {
+        v =
+          'v_' +
+          Math.random().toString(36).slice(2, 12) +
+          '_' +
+          String(Date.now());
+        localStorage.setItem(IMPLUX_LS_VID, v);
+      }
+      return v;
+    } catch (e1) {
+      return 'anon';
+    }
+  }
+
+  /** Set `window.impluxCustomerId` from the theme when the shopper is logged in to scope caps per account. */
+  function impluxFrequencyScope() {
+    try {
+      var uid = window.impluxCustomerId != null ? String(window.impluxCustomerId).trim() : '';
+      if (uid) return 'u:' + uid.slice(0, 120);
+    } catch (eU) {}
+    return 'v:' + impluxEnsureVisitorId();
+  }
+
+  function impluxReadFreqBucket(storage, key) {
+    try {
+      var raw = storage.getItem(key);
+      if (!raw) return {};
+      var j = JSON.parse(raw);
+      return j && typeof j === 'object' && !Array.isArray(j) ? j : {};
+    } catch (eR) {
+      return {};
+    }
+  }
+
+  function impluxWriteFreqBucket(storage, key, obj) {
+    try {
+      storage.setItem(key, JSON.stringify(obj));
+    } catch (eW) {}
+  }
+
+  function impluxResolveCampaignFrequencyCap(campaign) {
+    var fc = campaign && campaign.frequencyCap;
+    if (fc && typeof fc === 'object' && fc.frequency_cap_type) return fc;
+    var tc = (campaign && campaign.triggerConfig) || {};
+    var leg = String(tc.frequencyCap || 'always').toLowerCase();
+    if (leg === 'once_ever') {
+      return {
+        frequency_cap_type: 'standard',
+        max_impressions_per_session: null,
+        max_impressions_per_day: null,
+        cooldown_minutes: null,
+        max_impressions_lifetime: 1,
+      };
+    }
+    if (leg === 'once_per_session') {
+      return {
+        frequency_cap_type: 'standard',
+        max_impressions_per_session: 1,
+        max_impressions_per_day: null,
+        cooldown_minutes: null,
+        max_impressions_lifetime: null,
+      };
+    }
+    if (leg === 'once_per_day') {
+      return {
+        frequency_cap_type: 'standard',
+        max_impressions_per_session: null,
+        max_impressions_per_day: 1,
+        cooldown_minutes: null,
+        max_impressions_lifetime: null,
+      };
+    }
+    return {
+      frequency_cap_type: 'none',
+      max_impressions_per_session: null,
+      max_impressions_per_day: null,
+      cooldown_minutes: null,
+      max_impressions_lifetime: null,
+    };
+  }
+
+  function impluxResolveRecSetFrequencyCap(set) {
+    var fc = set && set.frequencyCap;
+    if (fc && typeof fc === 'object' && fc.frequency_cap_type) return fc;
+    return {
+      frequency_cap_type: 'none',
+      max_impressions_per_session: null,
+      max_impressions_per_day: null,
+      cooldown_minutes: null,
+      max_impressions_lifetime: null,
+    };
+  }
+
+  function impluxFrequencyCapHasAnyLimit(cap) {
+    if (!cap || cap.frequency_cap_type === 'none') return false;
+    return !!(
+      cap.max_impressions_per_session ||
+      cap.max_impressions_per_day ||
+      cap.cooldown_minutes ||
+      cap.max_impressions_lifetime
+    );
+  }
+
+  function impluxFreqEffectiveDayCount(st, todayKey) {
+    if (!st || st.dayKey !== todayKey) return 0;
+    return Math.max(0, Math.floor(Number(st.dayCount) || 0));
+  }
+
+  function impluxFrequencyEvaluate(cap, persistSlice, sessionCount, nowMs) {
+    if (!cap || cap.frequency_cap_type === 'none') return true;
+    var todayKey = impluxUtcDateString(new Date(nowMs));
+    var sc = Math.max(0, Math.floor(sessionCount || 0));
+    var dayCount = impluxFreqEffectiveDayCount(persistSlice, todayKey);
+    var lifetimeCount = Math.max(0, Math.floor(Number(persistSlice && persistSlice.lifetimeCount) || 0));
+    var lastShown = persistSlice && persistSlice.lastShownAt != null ? Number(persistSlice.lastShownAt) : null;
+
+    var cooldownMin = cap.cooldown_minutes != null ? Number(cap.cooldown_minutes) : null;
+    if (cooldownMin != null && cooldownMin > 0 && lastShown != null && isFinite(lastShown)) {
+      var elapsed = nowMs - lastShown;
+      if (elapsed >= 0 && elapsed < cooldownMin * 60000) return false;
+    }
+
+    var lifeMax = cap.max_impressions_lifetime != null ? Number(cap.max_impressions_lifetime) : null;
+    if (lifeMax != null && lifeMax > 0 && lifetimeCount >= lifeMax) return false;
+
+    var maxS = cap.max_impressions_per_session != null ? Number(cap.max_impressions_per_session) : null;
+    if (maxS != null && maxS > 0 && sc >= maxS) return false;
+
+    var maxD = cap.max_impressions_per_day != null ? Number(cap.max_impressions_per_day) : null;
+    if (maxD != null && maxD > 0 && dayCount >= maxD) return false;
+
+    return true;
+  }
+
+  function impluxGetScopedFreqParts(scope) {
+    var persistRoot = impluxReadFreqBucket(localStorage, IMPLUX_LS_FREQ);
+    var sessRoot = impluxReadFreqBucket(sessionStorage, IMPLUX_SS_SESS);
+    var persist = persistRoot[scope] || {};
+    var sess = sessRoot[scope] || {};
+    persist.campaign = persist.campaign && typeof persist.campaign === 'object' ? persist.campaign : {};
+    persist.recommendationSet =
+      persist.recommendationSet && typeof persist.recommendationSet === 'object' ? persist.recommendationSet : {};
+    sess.campaign = sess.campaign && typeof sess.campaign === 'object' ? sess.campaign : {};
+    sess.recommendationSet =
+      sess.recommendationSet && typeof sess.recommendationSet === 'object' ? sess.recommendationSet : {};
+    return { persistRoot: persistRoot, sessRoot: sessRoot, persist: persist, sess: sess };
+  }
+
+  function impluxPersistScoped(scope, persistRoot, sessRoot) {
+    impluxWriteFreqBucket(localStorage, IMPLUX_LS_FREQ, persistRoot);
+    impluxWriteFreqBucket(sessionStorage, IMPLUX_SS_SESS, sessRoot);
+  }
+
+  function impluxFrequencyGetEntityState(scope, kind, idStr) {
+    var parts = impluxGetScopedFreqParts(scope);
+    var p = parts.persist[kind] && parts.persist[kind][idStr] ? parts.persist[kind][idStr] : {};
+    var sObj = parts.sess[kind] && parts.sess[kind][idStr] ? parts.sess[kind][idStr] : {};
+    var sessionCount = Math.max(0, Math.floor(Number(sObj.sessionCount) || 0));
+    return { persist: p, sessionCount: sessionCount, parts: parts };
+  }
+
+  function impluxFrequencyAllowsCampaignShow(campaign) {
+    var cap = impluxResolveCampaignFrequencyCap(campaign);
+    var scope = impluxFrequencyScope();
+    var idStr = String(campaign.id);
+    var g = impluxFrequencyGetEntityState(scope, 'campaign', idStr);
+    return impluxFrequencyEvaluate(cap, g.persist, g.sessionCount, Date.now());
+  }
+
+  function impluxFrequencyAllowsRecSet(set) {
+    var cap = impluxResolveRecSetFrequencyCap(set);
+    var scope = impluxFrequencyScope();
+    var idStr = String(set.id);
+    var g = impluxFrequencyGetEntityState(scope, 'recommendationSet', idStr);
+    return impluxFrequencyEvaluate(cap, g.persist, g.sessionCount, Date.now());
+  }
+
+  function impluxFrequencyRecordImpression(scope, kind, idStr) {
+    var nowMs = Date.now();
+    var todayKey = impluxUtcDateString(new Date(nowMs));
+    var parts = impluxGetScopedFreqParts(scope);
+    var persistRoot = parts.persistRoot;
+    var sessRoot = parts.sessRoot;
+    var persist = JSON.parse(JSON.stringify(parts.persist));
+    var sess = JSON.parse(JSON.stringify(parts.sess));
+
+    var sPrev = sess[kind] && sess[kind][idStr] ? sess[kind][idStr] : {};
+    var sessionCount = Math.max(0, Math.floor(Number(sPrev.sessionCount) || 0)) + 1;
+    if (!sess[kind]) sess[kind] = {};
+    sess[kind][idStr] = { sessionCount: sessionCount };
+
+    var pPrev = persist[kind] && persist[kind][idStr] ? persist[kind][idStr] : {};
+    var dayCount;
+    if (pPrev.dayKey === todayKey) {
+      dayCount = Math.max(0, Math.floor(Number(pPrev.dayCount) || 0)) + 1;
+    } else {
+      dayCount = 1;
+    }
+    var lifetimeCount = Math.max(0, Math.floor(Number(pPrev.lifetimeCount) || 0)) + 1;
+    if (!persist[kind]) persist[kind] = {};
+    persist[kind][idStr] = {
+      dayKey: todayKey,
+      dayCount: dayCount,
+      lastShownAt: nowMs,
+      lifetimeCount: lifetimeCount,
+    };
+
+    persistRoot[scope] = persist;
+    sessRoot[scope] = sess;
+    impluxPersistScoped(scope, persistRoot, sessRoot);
+  }
+
+  function impluxFrequencyRecordCampaignShow(campaign) {
+    var cap = impluxResolveCampaignFrequencyCap(campaign);
+    if (!impluxFrequencyCapHasAnyLimit(cap)) return;
+    impluxFrequencyRecordImpression(impluxFrequencyScope(), 'campaign', String(campaign.id));
+  }
+
+  function impluxFrequencyRecordRecSetShown(set) {
+    var cap = impluxResolveRecSetFrequencyCap(set);
+    if (!impluxFrequencyCapHasAnyLimit(cap)) return;
+    impluxFrequencyRecordImpression(impluxFrequencyScope(), 'recommendationSet', String(set.id));
+  }
+
+  function impluxBuildFrequencyStateQuery() {
+    var scope = impluxFrequencyScope();
+    var parts = impluxGetScopedFreqParts(scope);
+    var persist = parts.persist;
+    var sess = parts.sess;
+
+    function mergeMap(kind) {
+      var out = {};
+      var ids = {};
+      var pk = persist[kind] || {};
+      var sk = sess[kind] || {};
+      Object.keys(pk).forEach(function(k) {
+        ids[k] = true;
+      });
+      Object.keys(sk).forEach(function(k) {
+        ids[k] = true;
+      });
+      Object.keys(ids).forEach(function(id) {
+        var pSt = pk[id] || {};
+        var sSt = sk[id] || {};
+        out[id] = {
+          sessionCount: Math.max(0, Math.floor(Number(sSt.sessionCount) || 0)),
+          dayKey: pSt.dayKey,
+          dayCount: pSt.dayCount != null ? Math.max(0, Math.floor(Number(pSt.dayCount) || 0)) : 0,
+          lastShownAt: pSt.lastShownAt != null ? Number(pSt.lastShownAt) : undefined,
+          lifetimeCount: pSt.lifetimeCount != null ? Math.max(0, Math.floor(Number(pSt.lifetimeCount) || 0)) : 0,
+        };
+      });
+      return out;
+    }
+
+    var payload = {
+      v: 1,
+      scope: scope,
+      campaign: mergeMap('campaign'),
+      recommendationSet: mergeMap('recommendationSet'),
+    };
+    try {
+      return encodeURIComponent(JSON.stringify(payload));
+    } catch (eJ) {
+      return '';
+    }
+  }
+
+  window.impluxRecordRecommendationImpression = function impluxRecordRecommendationImpression(setId) {
+    var idStr = String(setId);
+    var scope = impluxFrequencyScope();
+    var parts = impluxGetScopedFreqParts(scope);
+    var fakeSet = { id: idStr, frequencyCap: { frequency_cap_type: 'standard' } };
+    impluxFrequencyRecordRecSetShown(fakeSet);
+  };
+
   var impluxUpsellCartHandlers = [];
   var impluxLastCartAddNotify = 0;
   /** SKUs from the last successful /cart/add JSON response (fetch/XHR); cleared after upsell handlers read it */
@@ -237,7 +525,12 @@
     return arr;
   }
 
-  fetch(PROXY_URL + '/campaigns?shop=' + encodeURIComponent(shop))
+  var impluxFreqQs = (function() {
+    var fs = impluxBuildFrequencyStateQuery();
+    return fs ? '&freq_state=' + fs : '';
+  })();
+
+  fetch(PROXY_URL + '/campaigns?shop=' + encodeURIComponent(shop) + impluxFreqQs)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var campaigns = data.campaigns || [];
@@ -284,16 +577,114 @@
     })
     .catch(function() {});
 
+  /** --- Recommendation sets (placement + trigger rules via /proxy/recommendations) --- */
+  function impluxDetectRecommendationPlacement() {
+    var p = (window.location.pathname || '').toLowerCase();
+    if (p === '/cart' || p.indexOf('/cart/') === 0) return 'cart';
+    if (p.indexOf('/checkouts/') !== -1) return 'checkout';
+    if (p === '/checkout' || p.indexOf('/checkout/') === 0) return 'checkout';
+    return 'product_page';
+  }
+
+  function impluxRecommendationQueryFromProductMeta() {
+    var qs = '';
+    try {
+      var meta = window.impluxProductContext;
+      if (meta && typeof meta === 'object') {
+        if (meta.sku) qs += '&currentSku=' + encodeURIComponent(String(meta.sku));
+        if (meta.productCategory) qs += '&productCategory=' + encodeURIComponent(String(meta.productCategory));
+        if (Array.isArray(meta.tags) && meta.tags.length)
+          qs += '&tags=' + encodeURIComponent(meta.tags.join(','));
+        if (Array.isArray(meta.collectionIds) && meta.collectionIds.length)
+          qs += '&collectionIds=' + encodeURIComponent(meta.collectionIds.join(','));
+      }
+    } catch (eMeta) {}
+    return qs;
+  }
+
+  function impluxFetchRecommendationsForPlacement(placement, querySuffix) {
+    var fs = impluxBuildFrequencyStateQuery();
+    var freqPart = fs ? '&freq_state=' + fs : '';
+    var url =
+      PROXY_URL +
+      '/recommendations?shop=' +
+      encodeURIComponent(shop) +
+      '&placement=' +
+      encodeURIComponent(placement) +
+      freqPart +
+      (querySuffix || '');
+    return fetch(url)
+      .then(function(r) {
+        return r.json();
+      })
+      .catch(function() {
+        return { recommendationSets: [] };
+      });
+  }
+
+  function impluxApplyRecommendationsPayload(data) {
+    var rawList = data && data.recommendationSets ? data.recommendationSets : [];
+    var list = [];
+    for (var ri = 0; ri < rawList.length; ri++) {
+      if (impluxFrequencyAllowsRecSet(rawList[ri])) list.push(rawList[ri]);
+    }
+    for (var rj = 0; rj < list.length; rj++) {
+      impluxFrequencyRecordRecSetShown(list[rj]);
+    }
+    window.impluxRecommendations = list;
+    window.impluxRecommendationsMeta = {
+      placement: data && data.placement,
+      evaluatedAt: data && data.evaluatedAt,
+    };
+    try {
+      window.dispatchEvent(new CustomEvent('implux:recommendations', { detail: data || {} }));
+    } catch (eEv) {}
+  }
+
+  (function impluxLoadRecommendations() {
+    var placement = impluxDetectRecommendationPlacement();
+    var baseQs = impluxRecommendationQueryFromProductMeta();
+
+    if (placement === 'cart' || placement === 'checkout') {
+      fetch('/cart.js')
+        .then(function(r) {
+          return r.json();
+        })
+        .then(function(cart) {
+          var qs = baseQs;
+          try {
+            if (cart && cart.total_price != null) {
+              qs += '&cartSubtotal=' + encodeURIComponent(String(cart.total_price));
+            }
+            if (cart && Array.isArray(cart.items)) {
+              var skus = [];
+              for (var ci = 0; ci < cart.items.length; ci++) {
+                var cit = cart.items[ci];
+                var csku = cit && cit.sku != null ? String(cit.sku).trim() : '';
+                if (csku) skus.push(csku);
+              }
+              if (skus.length) qs += '&cartSkus=' + encodeURIComponent(skus.join(','));
+            }
+          } catch (eCart) {}
+          return impluxFetchRecommendationsForPlacement(placement, qs);
+        })
+        .catch(function() {
+          return impluxFetchRecommendationsForPlacement(placement, baseQs);
+        })
+        .then(impluxApplyRecommendationsPayload);
+      return;
+    }
+
+    impluxFetchRecommendationsForPlacement(placement, baseQs).then(impluxApplyRecommendationsPayload);
+  })();
+
   function initCampaign(campaign) {
     var type = normalizeCampaignType(campaign.type);
     var triggerConfig = campaign.triggerConfig || {};
     var designConfig = campaign.designConfig || {};
     var id = campaign.id;
 
-    var capKey = 'os_shown_' + id;
-    var cap = triggerConfig.frequencyCap;
-    if (cap === 'once_ever' && localStorage.getItem(capKey)) return;
-    if (cap === 'once_per_session' && sessionStorage.getItem(capKey)) return;
+    if (!impluxFrequencyAllowsCampaignShow(campaign)) return;
 
     if (isPromoBannerType(type) || isStickyFooterType(type)) {
       var dKey = 'os_bar_dismiss_' + id;
@@ -570,9 +961,8 @@
     var dismissKey = 'os_bar_dismiss_' + id;
     if (sessionStorage.getItem(dismissKey)) return;
 
-    var capKey = 'os_shown_' + id;
-    if (triggerConfig.frequencyCap === 'once_ever') localStorage.setItem(capKey, '1');
-    if (triggerConfig.frequencyCap === 'once_per_session') sessionStorage.setItem(capKey, '1');
+    if (!impluxFrequencyAllowsCampaignShow(campaign)) return;
+    impluxFrequencyRecordCampaignShow(campaign);
 
     var config = normalizeDesignConfig(designConfig, campaign.promoCode, campaign.type);
     var bar = buildPersistentBarDOM(config, campaign);
@@ -623,9 +1013,8 @@
     var designConfig = campaign.designConfig || {};
     var id = campaign.id;
 
-    var capKey = 'os_shown_' + id;
-    if (triggerConfig.frequencyCap === 'once_ever') localStorage.setItem(capKey, '1');
-    if (triggerConfig.frequencyCap === 'once_per_session') sessionStorage.setItem(capKey, '1');
+    if (!impluxFrequencyAllowsCampaignShow(campaign)) return;
+    impluxFrequencyRecordCampaignShow(campaign);
 
     var config = normalizeDesignConfig(designConfig, campaign.promoCode, campaign.type);
     var overlay = buildSpinWheelDOM(config, campaign);
@@ -649,9 +1038,8 @@
     var designConfig = campaign.designConfig || {};
     var id = campaign.id;
 
-    var capKey = 'os_shown_' + id;
-    if (triggerConfig.frequencyCap === 'once_ever') localStorage.setItem(capKey, '1');
-    if (triggerConfig.frequencyCap === 'once_per_session') sessionStorage.setItem(capKey, '1');
+    if (!impluxFrequencyAllowsCampaignShow(campaign)) return;
+    impluxFrequencyRecordCampaignShow(campaign);
 
     var config = normalizeDesignConfig(designConfig, campaign.promoCode, campaign.type);
     var overlay = buildOverlayDOM(config, campaign);

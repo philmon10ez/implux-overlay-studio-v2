@@ -75,5 +75,61 @@ export const rakuten = {
   credentials: () => api('/api/rakuten/credentials'),
 };
 
+export const products = {
+  list: (merchantId) => api(`/api/products?merchantId=${encodeURIComponent(merchantId)}`),
+  /** @param {number|string} id @param {number|string} [merchantId] — when set, server enforces tenant scope */
+  get: (id, merchantId) =>
+    api(
+      `/api/products/${id}${
+        merchantId != null && merchantId !== '' ? `?merchantId=${encodeURIComponent(merchantId)}` : ''
+      }`
+    ),
+  create: (data) => api('/api/products', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => api(`/api/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id) => api(`/api/products/${id}`, { method: 'DELETE' }),
+};
+
+export const recommendationSets = {
+  list: (merchantId) => api(`/api/recommendation-sets?merchantId=${encodeURIComponent(merchantId)}`),
+  /** Catalog summaries for external builders / SaaS (auth). */
+  presetsCatalog: () => api('/api/recommendation-sets/presets/catalog'),
+  /** @param {number|string} id @param {number|string} [merchantId] — when set, server enforces tenant scope */
+  get: (id, merchantId) =>
+    api(
+      `/api/recommendation-sets/${id}${
+        merchantId != null && merchantId !== '' ? `?merchantId=${encodeURIComponent(merchantId)}` : ''
+      }`
+    ),
+  create: (data) => api('/api/recommendation-sets', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => api(`/api/recommendation-sets/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id) => api(`/api/recommendation-sets/${id}`, { method: 'DELETE' }),
+};
+
+/** Targeting preview (auth) — matches /proxy/recommendations resolution with optional debug. */
+export const recommendations = {
+  resolvePreview: (body) =>
+    api('/api/recommendations/resolve-preview', { method: 'POST', body: JSON.stringify(body) }),
+};
+
+/** Conversion Intelligence — AI / heuristic helpers for the admin builder */
+export const conversionIntelligence = {
+  recommendationAssistant: (body) =>
+    api('/api/conversion-intelligence/recommendation-assistant', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+};
+
 /** Single object for api.auth.me(), api.merchants.list(), etc. */
-export default { api, auth, merchants, campaigns, analytics, rakuten };
+export default {
+  api,
+  auth,
+  merchants,
+  campaigns,
+  analytics,
+  rakuten,
+  products,
+  recommendationSets,
+  recommendations,
+  conversionIntelligence,
+};

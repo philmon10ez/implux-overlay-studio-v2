@@ -4,6 +4,7 @@ import api from '../lib/api';
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: '📊' },
   { to: '/campaigns', label: 'Campaigns', icon: '🎯' },
+  { to: '/recommendations', label: 'Recommendations', icon: '🛍' },
   { to: '/merchants', label: 'Merchants', icon: '🏪' },
   { to: '/analytics', label: 'Analytics', icon: '📈' },
   { to: '/rakuten', label: 'Rakuten', icon: '🔗' },

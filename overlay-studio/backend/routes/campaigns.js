@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import auth from '../middleware/auth.js';
 import { pushCampaignToStore } from '../services/shopifyService.js';
 import { canonicalCampaignType, isKnownCampaignType } from '../lib/campaignType.js';
+import { sanitizeFrequencyCapPayload } from '../lib/frequencyCap.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -47,7 +48,8 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/campaigns
 router.post('/', async (req, res, next) => {
   try {
-    const { name, merchantId, type, triggerConfig, designConfig, promoCode } = req.body ?? {};
+    const { name, merchantId, type, triggerConfig, designConfig, promoCode, promoConfig, frequencyCap } =
+      req.body ?? {};
     if (!name || !merchantId || !type || triggerConfig === undefined || designConfig === undefined) {
       return res.status(400).json({ error: 'name, merchantId, type, triggerConfig, designConfig required' });
     }
@@ -65,6 +67,9 @@ router.post('/', async (req, res, next) => {
         triggerConfig: triggerConfig,
         designConfig: designConfig,
         promoCode: promoCode != null ? String(promoCode) : null,
+        promoConfig: promoConfig === undefined ? null : promoConfig,
+        frequencyCap:
+          frequencyCap === undefined ? null : frequencyCap === null ? null : sanitizeFrequencyCapPayload(frequencyCap),
       },
       include: { merchant: { select: { id: true, storeName: true, shopifyDomain: true } } },
     });
@@ -80,7 +85,8 @@ router.put('/:id', async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
-    const { name, merchantId, type, triggerConfig, designConfig, promoCode, status } = req.body ?? {};
+    const { name, merchantId, type, triggerConfig, designConfig, promoCode, promoConfig, frequencyCap, status } =
+      req.body ?? {};
     const data = {};
     if (name !== undefined) data.name = String(name);
     if (merchantId !== undefined) { const mid = parseInt(merchantId, 10); if (!Number.isNaN(mid)) data.merchantId = mid; }
@@ -94,6 +100,10 @@ router.put('/:id', async (req, res, next) => {
     if (triggerConfig !== undefined) data.triggerConfig = triggerConfig;
     if (designConfig !== undefined) data.designConfig = designConfig;
     if (promoCode !== undefined) data.promoCode = promoCode === null || promoCode === '' ? null : String(promoCode);
+    if (promoConfig !== undefined) data.promoConfig = promoConfig;
+    if (frequencyCap !== undefined) {
+      data.frequencyCap = frequencyCap === null ? null : sanitizeFrequencyCapPayload(frequencyCap);
+    }
     if (status !== undefined) data.status = String(status);
     const campaign = await prisma.campaign.update({
       where: { id },
@@ -166,6 +176,8 @@ router.post('/:id/duplicate', async (req, res, next) => {
         triggerConfig: source.triggerConfig,
         designConfig: source.designConfig,
         promoCode: source.promoCode,
+        promoConfig: source.promoConfig ?? null,
+        frequencyCap: source.frequencyCap ?? null,
         status: 'draft',
       },
       include: { merchant: { select: { id: true, storeName: true, shopifyDomain: true } } },
@@ -188,6 +200,8 @@ function normalizeCampaign(c) {
     triggerConfig: c.triggerConfig,
     designConfig: c.designConfig,
     promoCode: c.promoCode,
+    promoConfig: c.promoConfig ?? null,
+    frequencyCap: c.frequencyCap ?? null,
     impressions: c.impressions,
     clicks: c.clicks,
     conversions: c.conversions,

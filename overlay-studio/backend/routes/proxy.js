@@ -1,6 +1,7 @@
 /**
  * App proxy — HMAC verified (GET) or Shopify webhook (POST), NOT auth. Called from storefront.
  * GET /proxy/campaigns?shop= — active campaigns for shop
+ * GET /proxy/recommendations?shop=&placement=&… — active recommendation sets for page context
  * GET /proxy/track?event=&campaign_id=&shop= — log impression/click
  * POST /proxy/conversion — Shopify orders/create webhook
  */
@@ -9,6 +10,16 @@ import { PrismaClient } from '@prisma/client';
 import optionalProxyHmac from '../middleware/optionalProxyHmac.js';
 import { verifyWebhook } from '../services/shopifyService.js';
 import { canonicalCampaignType } from '../lib/campaignType.js';
+import { parsePlacementType } from '../lib/placementType.js';
+import { buildContextFromProxyQuery } from '../services/recommendationTargetContext.js';
+import { resolveRecommendationSetsForShop } from '../services/recommendationResolveService.js';
+import {
+  parseClientFrequencyState,
+  filterCampaignsByFrequencyState,
+  filterRecommendationSetsByFrequencyState,
+  attachResolvedFrequencyCapToCampaign,
+  attachResolvedFrequencyCapToRecommendationSet,
+} from '../lib/frequencyCap.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -35,14 +46,46 @@ router.get('/campaigns', optionalProxyHmac, async (req, res, next) => {
         triggerConfig: true,
         designConfig: true,
         promoCode: true,
+        promoConfig: true,
+        frequencyCap: true,
       },
       orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
     });
-    res.json({
-      campaigns: campaigns.map((c) => ({
+    const freqState = parseClientFrequencyState(req.query.freq_state ?? req.query.freqState);
+    const mapped = campaigns.map((c) =>
+      attachResolvedFrequencyCapToCampaign({
         ...c,
         type: canonicalCampaignType(c.type) || c.type,
-      })),
+      })
+    );
+    const filtered = freqState ? filterCampaignsByFrequencyState(mapped, freqState) : mapped;
+    res.json({ campaigns: filtered });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /proxy/recommendations?shop=&placement=product_page|cart|checkout&…
+// Optional: currentSku, productCategory, cartSubtotal, cartSkus, tags, collectionIds, context=(JSON)
+router.get('/recommendations', optionalProxyHmac, async (req, res, next) => {
+  try {
+    const shop = (req.query.shop ?? '').toString().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    if (!shop) return res.status(400).json({ error: 'shop required' });
+    const placement = parsePlacementType(req.query.placement);
+    if (!placement) {
+      return res.status(400).json({ error: 'placement required: product_page, cart, or checkout' });
+    }
+    const pageContext = buildContextFromProxyQuery(req.query);
+    pageContext.pageType = placement;
+    const { sets, merchantId } = await resolveRecommendationSetsForShop(shop, placement, pageContext);
+    const freqState = parseClientFrequencyState(req.query.freq_state ?? req.query.freqState);
+    const withCaps = sets.map((s) => attachResolvedFrequencyCapToRecommendationSet(s));
+    const filteredSets = freqState ? filterRecommendationSetsByFrequencyState(withCaps, freqState) : withCaps;
+    res.json({
+      recommendationSets: filteredSets,
+      placement,
+      merchantId,
+      evaluatedAt: new Date().toISOString(),
     });
   } catch (err) {
     next(err);
