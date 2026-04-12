@@ -9,7 +9,7 @@
   "scripts": {
     "build": "node node_modules/prisma/build/index.js generate && node node_modules/@remix-run/dev/dist/cli.js vite:build",
     "dev": "shopify app dev",
-    "start": "node node_modules/prisma/build/index.js generate && node node_modules/prisma/build/index.js migrate deploy && node node_modules/@remix-run/serve/dist/cli.js ./build/server/index.js",
+    "start": "node node_modules/prisma/build/index.js generate && node node_modules/prisma/build/index.js migrate deploy && cross-env HOST=0.0.0.0 node node_modules/@remix-run/serve/dist/cli.js ./build/server/index.js",
     "deploy": "shopify app deploy",
     "generate": "shopify app generate",
     "prisma": "prisma",
@@ -24,10 +24,11 @@
     "@shopify/polaris": "^12.0.0",
     "@shopify/shopify-app-remix": "^4.1.0",
     "@shopify/shopify-app-session-storage-prisma": "^8.0.0",
+    "cross-env": "^10.1.0",
     "isbot": "^5.1.0",
+    "prisma": "^6.19.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "prisma": "^6.19.0"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@remix-run/dev": "^2.16.0",
