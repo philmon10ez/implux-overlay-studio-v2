@@ -115,7 +115,9 @@ export async function sendOverlayRequestEmail({ shop, vendorName, submissionOrde
     : DEFAULT_RECIPIENTS;
 
   if (!apiKey) {
-    throw new Error('Email is not configured (RESEND_API_KEY). Ask your Implux contact.');
+    throw new Error(
+      'Email is not configured: set RESEND_API_KEY in Railway (Shopify app service → Variables), then redeploy. Recipients default to matth@implux.io and philip.m@implux.io unless OVERLAY_REQUEST_TO is set.'
+    );
   }
 
   const subject = `(${vendorName}) - Overlay Request ${submissionOrderId}`;
