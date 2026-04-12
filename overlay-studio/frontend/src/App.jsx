@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import api from './lib/api';
 import Layout from './components/Layout';
@@ -26,32 +26,30 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-export default function App() {
-  return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="merchants" element={<Merchants />} />
-        <Route path="campaigns" element={<Campaigns />} />
-        <Route path="campaigns/new" element={<CampaignBuilder />} />
-        <Route path="campaigns/:id/edit" element={<CampaignBuilder />} />
-        <Route path="recommendations" element={<Recommendations />} />
-        <Route path="recommendations/new" element={<RecommendationSetEditor />} />
-        <Route path="recommendations/:id/edit" element={<RecommendationSetEditor />} />
-        <Route path="analytics" element={<Analytics />} />
-        <Route path="rakuten" element={<Rakuten />} />
-        <Route path="settings" element={<Settings />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
-}
+/** Data router so `useBlocker` (e.g. RecommendationSetEditor) works; `BrowserRouter` does not provide that context. */
+export const router = createBrowserRouter([
+  { path: '/login', element: <Login /> },
+  {
+    path: '/',
+    element: (
+      <ProtectedRoute>
+        <Layout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { index: true, element: <Navigate to="/dashboard" replace /> },
+      { path: 'dashboard', element: <Dashboard /> },
+      { path: 'merchants', element: <Merchants /> },
+      { path: 'campaigns', element: <Campaigns /> },
+      { path: 'campaigns/new', element: <CampaignBuilder /> },
+      { path: 'campaigns/:id/edit', element: <CampaignBuilder /> },
+      { path: 'recommendations', element: <Recommendations /> },
+      { path: 'recommendations/new', element: <RecommendationSetEditor /> },
+      { path: 'recommendations/:id/edit', element: <RecommendationSetEditor /> },
+      { path: 'analytics', element: <Analytics /> },
+      { path: 'rakuten', element: <Rakuten /> },
+      { path: 'settings', element: <Settings /> },
+    ],
+  },
+  { path: '*', element: <Navigate to="/" replace /> },
+]);
