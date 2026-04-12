@@ -178,13 +178,37 @@ export default function OverlayRequestForm({ shopLabel }) {
               </Card>
             ))}
 
-            {visibleSlots < MAX_REQUEST_SLOTS ? (
-              <Button
-                type="button"
-                onClick={() => setVisibleSlots((n) => Math.min(n + 1, MAX_REQUEST_SLOTS))}
-              >
-                Add additional campaign request
-              </Button>
+            {visibleSlots < MAX_REQUEST_SLOTS || visibleSlots > 1 ? (
+              visibleSlots === 1 ? (
+                <Button
+                  type="button"
+                  onClick={() => setVisibleSlots((n) => Math.min(n + 1, MAX_REQUEST_SLOTS))}
+                >
+                  Add additional campaign request
+                </Button>
+              ) : (
+                <InlineStack align="space-between" blockAlign="center" gap="400" wrap={false}>
+                  <div>
+                    {visibleSlots < MAX_REQUEST_SLOTS ? (
+                      <Button
+                        type="button"
+                        onClick={() => setVisibleSlots((n) => Math.min(n + 1, MAX_REQUEST_SLOTS))}
+                      >
+                        Add additional campaign request
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div>
+                    <Button
+                      type="button"
+                      tone="critical"
+                      onClick={() => setVisibleSlots((n) => Math.max(1, n - 1))}
+                    >
+                      Remove campaign
+                    </Button>
+                  </div>
+                </InlineStack>
+              )
             ) : null}
 
             <InlineStack align="end">
