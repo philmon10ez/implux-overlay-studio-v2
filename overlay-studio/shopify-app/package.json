@@ -9,7 +9,8 @@
   "scripts": {
     "build": "node node_modules/prisma/build/index.js generate && node node_modules/@remix-run/dev/dist/cli.js vite:build",
     "dev": "shopify app dev",
-    "start": "node node_modules/prisma/build/index.js generate && node node_modules/prisma/build/index.js migrate deploy && cross-env HOST=0.0.0.0 node node_modules/@remix-run/serve/dist/cli.js ./build/server/index.js",
+    "start": "node node_modules/prisma/build/index.js generate && cross-env HOST=0.0.0.0 node node_modules/@remix-run/serve/dist/cli.js ./build/server/index.js",
+    "migrate:deploy": "node node_modules/prisma/build/index.js migrate deploy",
     "deploy": "shopify app deploy",
     "generate": "shopify app generate",
     "prisma": "prisma",

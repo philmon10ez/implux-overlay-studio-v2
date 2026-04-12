@@ -4,7 +4,7 @@ import { Page, Layout, Text, Card, BlockStack, Button } from '@shopify/polaris';
 import { TitleBar } from '@shopify/app-bridge-react';
 import { Buffer } from 'node:buffer';
 import { authenticate } from '../shopify.server.js';
-import prisma from '../db.server.js';
+import prisma, { ensureOverlaySubmissionTable } from '../db.server.js';
 import { sendOverlayRequestEmail, formatSubmissionOrderId } from '../lib/sendOverlayRequestEmail.server.js';
 import OverlayRequestForm from '../components/OverlayRequestForm.jsx';
 
@@ -181,6 +181,7 @@ export const action = async ({ request }) => {
 
   let submissionOrderId;
   try {
+    await ensureOverlaySubmissionTable();
     const submission = await prisma.overlaySubmission.create({
       data: {
         shopDomain: shopNorm,
