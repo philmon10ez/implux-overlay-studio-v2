@@ -7,7 +7,7 @@ application_url = "https://YOUR-RAILWAY-REMIX-SERVICE.up.railway.app"
 embedded = true
 
 [access_scopes]
-scopes = "read_products,write_script_tags,read_orders,write_themes,read_themes"
+scopes = "read_products,write_script_tags,read_orders,write_themes,read_themes,read_users"
 
 [auth]
 redirect_urls = [

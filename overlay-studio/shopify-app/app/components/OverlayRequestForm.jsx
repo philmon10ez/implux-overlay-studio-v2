@@ -16,7 +16,7 @@ import {
   URGENCY_OPTIONS,
 } from '../lib/overlayRequestOptions.js';
 
-const SLOTS = [0, 1, 2, 3, 4];
+const MAX_REQUEST_SLOTS = 5;
 
 function NativeSelect({ name, label, options, defaultValue }) {
   return (
@@ -52,10 +52,12 @@ export default function OverlayRequestForm({ shopLabel }) {
   const busy = fetcher.state !== 'idle';
   const data = fetcher.data;
   const [formKey, setFormKey] = useState(0);
+  const [visibleSlots, setVisibleSlots] = useState(1);
 
   useEffect(() => {
     if (data?.ok) {
       setFormKey((k) => k + 1);
+      setVisibleSlots(1);
     }
   }, [data?.ok]);
 
@@ -67,7 +69,7 @@ export default function OverlayRequestForm({ shopLabel }) {
             Request overlay designs
           </Text>
           <Text as="p" variant="bodyMd" tone="subdued">
-            Send up to five overlay build requests at once. Include SKU, UPC, and the exact page URL for each product.
+            Start with one request below, or add up to five. Include SKU, UPC, and the exact page URL for each product.
             Optional reference images help us match your brand. You’ll get a simple confirmation here — our team receives
             the details by email.
           </Text>
@@ -93,15 +95,14 @@ export default function OverlayRequestForm({ shopLabel }) {
         <fetcher.Form key={formKey} method="post" encType="multipart/form-data">
           <input type="hidden" name="_intent" value="overlay_request" />
           <BlockStack gap="500">
-            {SLOTS.map((i) => (
+            {Array.from({ length: visibleSlots }, (_, i) => i).map((i) => (
               <Card key={i} background="bg-surface-secondary">
                 <BlockStack gap="300">
                   <Text as="h3" variant="headingSm">
                     Request {i + 1}
                   </Text>
                   <Text as="p" variant="bodySm" tone="subdued">
-                    Leave a row empty to skip it. If you fill a row, SKU, UPC, page URL, overlay type, and placement are
-                    required.
+                    If you fill this request, SKU, UPC, page URL, overlay type, and placement are required.
                   </Text>
                   <FormLayout>
                     <FormLayout.Group>
@@ -176,6 +177,15 @@ export default function OverlayRequestForm({ shopLabel }) {
                 </BlockStack>
               </Card>
             ))}
+
+            {visibleSlots < MAX_REQUEST_SLOTS ? (
+              <Button
+                type="button"
+                onClick={() => setVisibleSlots((n) => Math.min(n + 1, MAX_REQUEST_SLOTS))}
+              >
+                Add additional campaign request
+              </Button>
+            ) : null}
 
             <InlineStack align="end">
               <Button submit variant="primary" loading={busy} disabled={busy}>

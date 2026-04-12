@@ -10,6 +10,40 @@ import OverlayRequestForm from '../components/OverlayRequestForm.jsx';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://your-overlay-studio.vercel.app';
 
+/** Lowercase emails allowed to see "Open Campaigns" (Implux dashboard). Empty = hidden for everyone. */
+function parseDashboardEmailAllowlist(raw) {
+  if (!raw || typeof raw !== 'string') return new Set();
+  return new Set(
+    raw
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+async function getStaffMemberEmail(admin) {
+  try {
+    const res = await admin.graphql(
+      `#graphql
+      query ImpluxCurrentStaffMember {
+        currentStaffMember {
+          email
+        }
+      }`
+    );
+    const json = await res.json();
+    if (json.errors?.length) {
+      console.warn('[Implux] currentStaffMember:', json.errors.map((e) => e.message).join('; '));
+      return null;
+    }
+    const email = json?.data?.currentStaffMember?.email;
+    return typeof email === 'string' ? email : null;
+  } catch (e) {
+    console.warn('[Implux] currentStaffMember request failed:', e?.message || e);
+    return null;
+  }
+}
+
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_REQUEST_SLOTS = 5;
 
@@ -138,8 +172,17 @@ export const action = async ({ request }) => {
 };
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = session?.shop || '';
+
+  const allowlist = parseDashboardEmailAllowlist(process.env.IMPLUX_DASHBOARD_ALLOWED_EMAILS || '');
+  let showOpenCampaigns = false;
+  if (allowlist.size > 0) {
+    const staffEmail = await getStaffMemberEmail(admin);
+    if (staffEmail && allowlist.has(staffEmail.trim().toLowerCase())) {
+      showOpenCampaigns = true;
+    }
+  }
 
   // Sync this shop to Implux backend when the app is opened (covers installs that missed afterAuth or reinstall)
   const backendUrl = (process.env.IMPLUX_BACKEND_URL || process.env.BACKEND_API_URL || '').replace(/\/$/, '');
@@ -203,11 +246,12 @@ export const loader = async ({ request }) => {
     activeCampaignCount,
     frontendUrl: FRONTEND_URL,
     shopLabel,
+    showOpenCampaigns,
   };
 };
 
 export default function AppIndex() {
-  const { activeCampaignCount, frontendUrl, shopLabel } = useLoaderData();
+  const { activeCampaignCount, frontendUrl, shopLabel, showOpenCampaigns } = useLoaderData();
 
   return (
     <Page>
@@ -226,9 +270,11 @@ export default function AppIndex() {
                 <Text as="p" variant="bodyMd">
                   Active campaigns for this shop: <strong>{activeCampaignCount}</strong>
                 </Text>
-                <Button url={`${frontendUrl.replace(/\/$/, '')}/campaigns`} variant="primary" external>
-                  Open Campaigns (admin.implux.io)
-                </Button>
+                {showOpenCampaigns ? (
+                  <Button url={`${frontendUrl.replace(/\/$/, '')}/campaigns`} variant="primary" external>
+                    Open Campaigns (admin.implux.io)
+                  </Button>
+                ) : null}
               </BlockStack>
             </Card>
           </Layout.Section>
