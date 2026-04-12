@@ -136,34 +136,58 @@ export async function sendOverlayRequestEmail({ shop, vendorName, submissionOrde
     }
   });
 
-  const payload = {
-    from,
-    to: recipients,
-    subject,
-    html,
-    text,
-  };
-  if (attachments.length) {
-    payload.attachments = attachments;
+  function parseResendErrorBody(raw) {
+    try {
+      const j = JSON.parse(raw);
+      if (typeof j.message === 'string') return j.message;
+      if (Array.isArray(j.errors)) {
+        return j.errors
+          .map((e) => (typeof e === 'string' ? e : e?.message || JSON.stringify(e)))
+          .join('; ');
+      }
+    } catch {
+      /* ignore */
+    }
+    return raw.length > 400 ? `${raw.slice(0, 400)}…` : raw;
   }
 
-  const res = await fetch(RESEND_API, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
+  /** One Resend API call per inbox — avoids provider quirks with multi-address `to` arrays. */
+  const lastResults = [];
+  for (const email of recipients) {
+    const payload = {
+      from,
+      to: [email],
+      subject,
+      html,
+      text,
+    };
+    if (attachments.length) {
+      payload.attachments = attachments;
+    }
 
-  const raw = await res.text();
-  if (!res.ok) {
-    console.error('[Implux] Resend error:', res.status, raw);
-    throw new Error('Could not send your request. Please try again shortly.');
+    const res = await fetch(RESEND_API, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const raw = await res.text();
+    if (!res.ok) {
+      const detail = parseResendErrorBody(raw);
+      console.error('[Implux] Resend error:', res.status, raw);
+      throw new Error(
+        `Email could not be sent (${res.status}). ${detail || 'Check Resend Logs and API key. If you are new to Resend, verify your domain or use only the account email until the domain is verified.'}`
+      );
+    }
+    try {
+      lastResults.push(raw ? JSON.parse(raw) : {});
+    } catch {
+      lastResults.push({});
+    }
   }
-  try {
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
+
+  return lastResults[lastResults.length - 1] || {};
 }
