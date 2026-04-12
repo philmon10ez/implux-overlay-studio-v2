@@ -28,3 +28,15 @@ model Session {
   refreshToken        String?
   refreshTokenExpires  DateTime?
 }
+
+/// Global overlay request submissions (monotonic id = order number across all shops).
+model OverlaySubmission {
+  id          Int      @id @default(autoincrement())
+  shopDomain  String
+  vendorName  String
+  rowCount    Int
+  createdAt   DateTime @default(now())
+
+  @@index([shopDomain])
+  @@index([createdAt])
+}

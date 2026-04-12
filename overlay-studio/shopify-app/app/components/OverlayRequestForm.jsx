@@ -5,9 +5,7 @@ import {
   Banner,
   Button,
   Card,
-  FormLayout,
   Text,
-  TextField,
   InlineStack,
 } from '@shopify/polaris';
 import {
@@ -18,23 +16,53 @@ import {
 
 const MAX_REQUEST_SLOTS = 5;
 
+const fieldStyle = {
+  width: '100%',
+  marginTop: 6,
+  padding: '8px 10px',
+  borderRadius: 8,
+  border: '1px solid #c9cccf',
+  fontSize: 14,
+  background: '#fff',
+  fontFamily: 'inherit',
+  boxSizing: 'border-box',
+};
+
+function NativeField({ id, name, label, type = 'text', placeholder, multiline = false }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <label htmlFor={id} style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 4, color: '#303030' }}>
+        {label}
+      </label>
+      {multiline ? (
+        <textarea
+          id={id}
+          name={name}
+          rows={3}
+          placeholder={placeholder}
+          autoComplete="off"
+          style={{ ...fieldStyle, resize: 'vertical', minHeight: 72 }}
+        />
+      ) : (
+        <input id={id} name={name} type={type} placeholder={placeholder} autoComplete="off" style={fieldStyle} />
+      )}
+    </div>
+  );
+}
+
 function NativeSelect({ name, label, options, defaultValue }) {
   return (
-    <div>
-      <Text as="p" variant="bodySm" fontWeight="medium">
+    <div style={{ marginBottom: 12 }}>
+      <label htmlFor={name} style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 4, color: '#303030' }}>
         {label}
-      </Text>
+      </label>
       <select
+        id={name}
         name={name}
         defaultValue={defaultValue}
         style={{
-          width: '100%',
-          marginTop: 6,
-          padding: '8px 10px',
-          borderRadius: 8,
-          border: '1px solid #c9cccf',
-          fontSize: 14,
-          background: '#fff',
+          ...fieldStyle,
+          cursor: 'pointer',
         }}
       >
         {options.map((o) => (
@@ -47,7 +75,7 @@ function NativeSelect({ name, label, options, defaultValue }) {
   );
 }
 
-export default function OverlayRequestForm({ shopLabel }) {
+export default function OverlayRequestForm({ shopLabel, vendorName }) {
   const fetcher = useFetcher();
   const busy = fetcher.state !== 'idle';
   const data = fetcher.data;
@@ -73,6 +101,11 @@ export default function OverlayRequestForm({ shopLabel }) {
             Optional reference images help us match your brand. You’ll get a simple confirmation here — our team receives
             the details by email.
           </Text>
+          {vendorName ? (
+            <Text as="p" variant="bodySm" tone="subdued">
+              Vendor: <strong>{vendorName}</strong>
+            </Text>
+          ) : null}
           {shopLabel ? (
             <Text as="p" variant="bodySm" tone="subdued">
               Store: <strong>{shopLabel}</strong>
@@ -96,7 +129,7 @@ export default function OverlayRequestForm({ shopLabel }) {
           <input type="hidden" name="_intent" value="overlay_request" />
           <BlockStack gap="500">
             {Array.from({ length: visibleSlots }, (_, i) => i).map((i) => (
-              <Card key={i} background="bg-surface-secondary">
+              <Card key={`${formKey}-${i}`} background="bg-surface-secondary">
                 <BlockStack gap="300">
                   <Text as="h3" variant="headingSm">
                     Request {i + 1}
@@ -104,76 +137,86 @@ export default function OverlayRequestForm({ shopLabel }) {
                   <Text as="p" variant="bodySm" tone="subdued">
                     If you fill this request, SKU, UPC, page URL, overlay type, and placement are required.
                   </Text>
-                  <FormLayout>
-                    <FormLayout.Group>
-                      <TextField
-                        name={`sku_${i}`}
-                        label="SKU"
-                        autoComplete="off"
-                        placeholder="e.g. ABC-123-RED"
-                      />
-                      <TextField
-                        name={`upc_${i}`}
-                        label="UPC"
-                        autoComplete="off"
-                        placeholder="12-digit barcode"
-                      />
-                    </FormLayout.Group>
-                    <TextField
-                      name={`pageUrl_${i}`}
-                      label="Page URL"
-                      type="url"
-                      autoComplete="off"
-                      placeholder="https://yourstore.com/products/..."
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                      gap: '0 16px',
+                    }}
+                  >
+                    <NativeField
+                      id={`sku_${i}`}
+                      name={`sku_${i}`}
+                      label="SKU"
+                      placeholder="e.g. ABC-123-RED"
                     />
-                    <FormLayout.Group>
-                      <NativeSelect
-                        name={`overlayType_${i}`}
-                        label="Overlay type"
-                        options={OVERLAY_TYPE_OPTIONS}
-                        defaultValue={OVERLAY_TYPE_OPTIONS[0].value}
-                      />
-                      <NativeSelect
-                        name={`placement_${i}`}
-                        label="Placement"
-                        options={PLACEMENT_OPTIONS}
-                        defaultValue={PLACEMENT_OPTIONS[0].value}
-                      />
-                    </FormLayout.Group>
+                    <NativeField
+                      id={`upc_${i}`}
+                      name={`upc_${i}`}
+                      label="UPC"
+                      placeholder="12-digit barcode"
+                    />
+                  </div>
+                  <NativeField
+                    id={`pageUrl_${i}`}
+                    name={`pageUrl_${i}`}
+                    label="Page URL"
+                    type="url"
+                    placeholder="https://yourstore.com/products/..."
+                  />
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                      gap: '0 16px',
+                    }}
+                  >
                     <NativeSelect
-                      name={`urgency_${i}`}
-                      label="Timeline"
-                      options={URGENCY_OPTIONS}
-                      defaultValue="standard"
+                      name={`overlayType_${i}`}
+                      label="Overlay type"
+                      options={OVERLAY_TYPE_OPTIONS}
+                      defaultValue={OVERLAY_TYPE_OPTIONS[0].value}
                     />
-                    <TextField
-                      name={`productTitle_${i}`}
-                      label="Product title (optional)"
-                      autoComplete="off"
-                      placeholder="As shown in your catalog"
+                    <NativeSelect
+                      name={`placement_${i}`}
+                      label="Placement"
+                      options={PLACEMENT_OPTIONS}
+                      defaultValue={PLACEMENT_OPTIONS[0].value}
                     />
-                    <TextField
-                      name={`notes_${i}`}
-                      label="Notes (optional)"
-                      multiline={3}
-                      autoComplete="off"
-                      placeholder="Messaging, promo code, colors, or other context"
+                  </div>
+                  <NativeSelect
+                    name={`urgency_${i}`}
+                    label="Timeline"
+                    options={URGENCY_OPTIONS}
+                    defaultValue="standard"
+                  />
+                  <NativeField
+                    id={`productTitle_${i}`}
+                    name={`productTitle_${i}`}
+                    label="Product title (optional)"
+                    placeholder="As shown in your catalog"
+                  />
+                  <NativeField
+                    id={`notes_${i}`}
+                    name={`notes_${i}`}
+                    label="Notes (optional)"
+                    multiline
+                    placeholder="Messaging, promo code, colors, or other context"
+                  />
+                  <div>
+                    <Text as="p" variant="bodySm" fontWeight="medium">
+                      Reference image (optional)
+                    </Text>
+                    <input
+                      type="file"
+                      name={`image_${i}`}
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      style={{ marginTop: 8, fontSize: 13 }}
                     />
-                    <div>
-                      <Text as="p" variant="bodySm" fontWeight="medium">
-                        Reference image (optional)
-                      </Text>
-                      <input
-                        type="file"
-                        name={`image_${i}`}
-                        accept="image/png,image/jpeg,image/webp,image/gif"
-                        style={{ marginTop: 8, fontSize: 13 }}
-                      />
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        PNG, JPG, WebP, or GIF — max 5 MB per image.
-                      </Text>
-                    </div>
-                  </FormLayout>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      PNG, JPG, WebP, or GIF — max 5 MB per image.
+                    </Text>
+                  </div>
                 </BlockStack>
               </Card>
             ))}

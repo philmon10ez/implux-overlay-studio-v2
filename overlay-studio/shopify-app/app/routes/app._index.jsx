@@ -5,7 +5,7 @@ import { TitleBar } from '@shopify/app-bridge-react';
 import { Buffer } from 'node:buffer';
 import { authenticate } from '../shopify.server.js';
 import prisma from '../db.server.js';
-import { sendOverlayRequestEmail } from '../lib/sendOverlayRequestEmail.server.js';
+import { sendOverlayRequestEmail, formatSubmissionOrderId } from '../lib/sendOverlayRequestEmail.server.js';
 import OverlayRequestForm from '../components/OverlayRequestForm.jsx';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://your-overlay-studio.vercel.app';
@@ -19,6 +19,29 @@ function parseDashboardEmailAllowlist(raw) {
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean)
   );
+}
+
+async function fetchShopVendorName(admin) {
+  try {
+    const res = await admin.graphql(
+      `#graphql
+      query ImpluxShopVendorName {
+        shop {
+          name
+        }
+      }`
+    );
+    const json = await res.json();
+    if (json.errors?.length) {
+      console.warn('[Implux] shop.name:', json.errors.map((e) => e.message).join('; '));
+      return null;
+    }
+    const name = json?.data?.shop?.name;
+    return typeof name === 'string' && name.trim() ? name.trim() : null;
+  } catch (e) {
+    console.warn('[Implux] shop.name request failed:', e?.message || e);
+    return null;
+  }
 }
 
 async function getStaffMemberEmail(admin) {
@@ -53,7 +76,7 @@ function safeFilename(name) {
 }
 
 export const action = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = session?.shop || 'unknown';
   const shopNorm = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
@@ -152,10 +175,34 @@ export const action = async ({ request }) => {
     );
   }
 
+  const vendorName =
+    (await fetchShopVendorName(admin)) ||
+    shopNorm.replace('.myshopify.com', '').replace(/-/g, ' ');
+
+  let submissionOrderId;
   try {
-    await sendOverlayRequestEmail({ shop: shopNorm, rows });
+    const submission = await prisma.overlaySubmission.create({
+      data: {
+        shopDomain: shopNorm,
+        vendorName,
+        rowCount: rows.length,
+      },
+    });
+    submissionOrderId = formatSubmissionOrderId(submission.id);
+
+    try {
+      await sendOverlayRequestEmail({
+        shop: shopNorm,
+        vendorName,
+        submissionOrderId,
+        rows,
+      });
+    } catch (emailErr) {
+      await prisma.overlaySubmission.delete({ where: { id: submission.id } }).catch(() => {});
+      throw emailErr;
+    }
   } catch (e) {
-    console.error('[Implux] overlay request email failed:', e?.message || e);
+    console.error('[Implux] overlay request save/email failed:', e?.message || e);
     return json(
       {
         ok: false,
@@ -167,7 +214,8 @@ export const action = async ({ request }) => {
 
   return json({
     ok: true,
-    message: 'Thanks — your overlay request was submitted. Our team will review it shortly.',
+    submissionOrderId,
+    message: `Thanks — request ${submissionOrderId} was submitted. Our team will review it shortly.`,
   });
 };
 
@@ -241,17 +289,21 @@ export const loader = async ({ request }) => {
   }
 
   const shopLabel = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const vendorName =
+    (await fetchShopVendorName(admin)) ||
+    shopLabel.replace('.myshopify.com', '').replace(/-/g, ' ');
 
   return {
     activeCampaignCount,
     frontendUrl: FRONTEND_URL,
     shopLabel,
+    vendorName,
     showOpenCampaigns,
   };
 };
 
 export default function AppIndex() {
-  const { activeCampaignCount, frontendUrl, shopLabel, showOpenCampaigns } = useLoaderData();
+  const { activeCampaignCount, frontendUrl, shopLabel, vendorName, showOpenCampaigns } = useLoaderData();
 
   return (
     <Page>
@@ -279,7 +331,7 @@ export default function AppIndex() {
             </Card>
           </Layout.Section>
           <Layout.Section>
-            <OverlayRequestForm shopLabel={shopLabel} />
+            <OverlayRequestForm shopLabel={shopLabel} vendorName={vendorName} />
           </Layout.Section>
         </Layout>
       </BlockStack>

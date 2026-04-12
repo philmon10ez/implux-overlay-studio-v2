@@ -22,7 +22,18 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
-function buildHtmlBody(shop, rows) {
+/** 5+ digit zero-padded order id (global sequence). */
+export function formatSubmissionOrderId(id) {
+  return String(Math.max(0, Number(id) || 0)).padStart(5, '0');
+}
+
+function buildHtmlBody({
+  shop,
+  vendorName,
+  submissionOrderId,
+  rows,
+}) {
+  const vendorEsc = escapeHtml(vendorName);
   const shopEsc = escapeHtml(shop);
   let blocks = '';
   for (let i = 0; i < rows.length; i++) {
@@ -47,15 +58,28 @@ function buildHtmlBody(shop, rows) {
       </div>`;
   }
   return `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;line-height:1.5;color:#111;">
-    <p><strong>Shop:</strong> ${shopEsc}</p>
-    <p><strong>Requests:</strong> ${rows.length}</p>
+    <p>The Vendor <strong>${vendorEsc}</strong> has requested the following overlays.</p>
+    <p style="font-size:14px;color:#444;"><strong>Order ID:</strong> ${escapeHtml(submissionOrderId)} &nbsp;|&nbsp; <strong>Shop:</strong> ${shopEsc}</p>
+    <p><strong>Requests in this submission:</strong> ${rows.length}</p>
     ${blocks}
     <p style="font-size:12px;color:#888;">Submitted from the Implux Shopify app.</p>
   </body></html>`;
 }
 
-function buildTextBody(shop, rows) {
-  const lines = [`Shop: ${shop}`, `Requests: ${rows.length}`, ''];
+function buildTextBody({
+  shop,
+  vendorName,
+  submissionOrderId,
+  rows,
+}) {
+  const lines = [
+    `The Vendor ${vendorName} has requested the following overlays.`,
+    '',
+    `Order ID: ${submissionOrderId}`,
+    `Shop: ${shop}`,
+    `Requests in this submission: ${rows.length}`,
+    '',
+  ];
   rows.forEach((r, i) => {
     lines.push(`--- Request ${i + 1} ---`);
     lines.push(`SKU: ${r.sku}`);
@@ -75,9 +99,11 @@ function buildTextBody(shop, rows) {
 /**
  * @param {object} opts
  * @param {string} opts.shop
+ * @param {string} opts.vendorName - Shopify shop display name
+ * @param {string} opts.submissionOrderId - zero-padded global order id
  * @param {Array<object>} opts.rows - parsed request rows (image as buffer + imageName optional)
  */
-export async function sendOverlayRequestEmail({ shop, rows }) {
+export async function sendOverlayRequestEmail({ shop, vendorName, submissionOrderId, rows }) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM || 'Implux <onboarding@resend.dev>';
   const toRaw = process.env.OVERLAY_REQUEST_TO;
@@ -92,15 +118,17 @@ export async function sendOverlayRequestEmail({ shop, rows }) {
     throw new Error('Email is not configured (RESEND_API_KEY). Ask your Implux contact.');
   }
 
-  const html = buildHtmlBody(shop, rows);
-  const text = buildTextBody(shop, rows);
+  const subject = `(${vendorName}) - Overlay Request ${submissionOrderId}`;
+
+  const html = buildHtmlBody({ shop, vendorName, submissionOrderId, rows });
+  const text = buildTextBody({ shop, vendorName, submissionOrderId, rows });
 
   /** @type {{ filename: string, content: string }[]} */
   const attachments = [];
   rows.forEach((r, i) => {
     if (r.imageBuffer && r.imageName) {
       attachments.push({
-        filename: `request-${i + 1}-${r.imageName}`,
+        filename: `${submissionOrderId}-request-${i + 1}-${r.imageName}`,
         content: Buffer.from(r.imageBuffer).toString('base64'),
       });
     }
@@ -109,7 +137,7 @@ export async function sendOverlayRequestEmail({ shop, rows }) {
   const payload = {
     from,
     to: recipients,
-    subject: `[Implux overlay] ${shop} — ${rows.length} request(s)`,
+    subject,
     html,
     text,
   };
