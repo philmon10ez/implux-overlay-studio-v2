@@ -1,16 +1,16 @@
 /**
- * Sends formatted overlay creation requests via Resend (https://resend.com).
- * Set RESEND_API_KEY and RESEND_FROM in the Shopify app environment.
+ * Sends overlay request emails via SMTP (Zoho: smtp.zoho.com or smtp.zoho.eu).
+ *
+ * Set SMTP_USER, SMTP_PASS, and optionally SMTP_FROM, SMTP_HOST, SMTP_PORT in the app environment.
  */
 import { Buffer } from 'node:buffer';
+import nodemailer from 'nodemailer';
 import {
   OVERLAY_TYPE_OPTIONS,
   PLACEMENT_OPTIONS,
   URGENCY_OPTIONS,
   labelByValue,
 } from './overlayRequestOptions.js';
-
-const RESEND_API = 'https://api.resend.com/emails';
 
 const DEFAULT_RECIPIENTS = ['matth@implux.io', 'philip.m@implux.io'];
 
@@ -96,6 +96,27 @@ function buildTextBody({
   return lines.join('\n');
 }
 
+function getSmtpTransport() {
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!user || !pass) {
+    return null;
+  }
+  const host = process.env.SMTP_HOST || 'smtp.zoho.com';
+  const port = Number(process.env.SMTP_PORT || '465');
+  const secure =
+    process.env.SMTP_SECURE !== undefined
+      ? process.env.SMTP_SECURE === 'true'
+      : port === 465;
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  });
+}
+
 /**
  * @param {object} opts
  * @param {string} opts.shop
@@ -104,8 +125,11 @@ function buildTextBody({
  * @param {Array<object>} opts.rows - parsed request rows (image as buffer + imageName optional)
  */
 export async function sendOverlayRequestEmail({ shop, vendorName, submissionOrderId, rows }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || 'Implux <onboarding@resend.dev>';
+  const transport = getSmtpTransport();
+  const from =
+    process.env.SMTP_FROM ||
+    (process.env.SMTP_USER ? `Implux Requests <${process.env.SMTP_USER}>` : null);
+
   const toRaw = process.env.OVERLAY_REQUEST_TO;
   const recipients = toRaw
     ? toRaw
@@ -114,9 +138,9 @@ export async function sendOverlayRequestEmail({ shop, vendorName, submissionOrde
         .filter(Boolean)
     : DEFAULT_RECIPIENTS;
 
-  if (!apiKey) {
+  if (!transport || !from) {
     throw new Error(
-      'Email is not configured: set RESEND_API_KEY in Railway (Shopify app service → Variables), then redeploy. Recipients default to matth@implux.io and philip.m@implux.io unless OVERLAY_REQUEST_TO is set.'
+      'Email is not configured: set SMTP_USER and SMTP_PASS (Zoho mailbox + app password) on the Shopify app service, optionally SMTP_FROM and SMTP_HOST/SMTP_PORT, then redeploy. Recipients default to matth@implux.io and philip.m@implux.io unless OVERLAY_REQUEST_TO is set.'
     );
   }
 
@@ -125,69 +149,32 @@ export async function sendOverlayRequestEmail({ shop, vendorName, submissionOrde
   const html = buildHtmlBody({ shop, vendorName, submissionOrderId, rows });
   const text = buildTextBody({ shop, vendorName, submissionOrderId, rows });
 
-  /** @type {{ filename: string, content: string }[]} */
   const attachments = [];
   rows.forEach((r, i) => {
     if (r.imageBuffer && r.imageName) {
       attachments.push({
         filename: `${submissionOrderId}-request-${i + 1}-${r.imageName}`,
-        content: Buffer.from(r.imageBuffer).toString('base64'),
+        content: Buffer.from(r.imageBuffer),
       });
     }
   });
 
-  function parseResendErrorBody(raw) {
-    try {
-      const j = JSON.parse(raw);
-      if (typeof j.message === 'string') return j.message;
-      if (Array.isArray(j.errors)) {
-        return j.errors
-          .map((e) => (typeof e === 'string' ? e : e?.message || JSON.stringify(e)))
-          .join('; ');
-      }
-    } catch {
-      /* ignore */
-    }
-    return raw.length > 400 ? `${raw.slice(0, 400)}…` : raw;
-  }
-
-  /** One Resend API call per inbox — avoids provider quirks with multi-address `to` arrays. */
-  const lastResults = [];
-  for (const email of recipients) {
-    const payload = {
+  try {
+    const info = await transport.sendMail({
       from,
-      to: [email],
+      to: recipients,
       subject,
-      html,
       text,
-    };
-    if (attachments.length) {
-      payload.attachments = attachments;
-    }
-
-    const res = await fetch(RESEND_API, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+      html,
+      attachments: attachments.length ? attachments : undefined,
     });
-
-    const raw = await res.text();
-    if (!res.ok) {
-      const detail = parseResendErrorBody(raw);
-      console.error('[Implux] Resend error:', res.status, raw);
-      throw new Error(
-        `Email could not be sent (${res.status}). ${detail || 'Check Resend Logs and API key. If you are new to Resend, verify your domain or use only the account email until the domain is verified.'}`
-      );
-    }
-    try {
-      lastResults.push(raw ? JSON.parse(raw) : {});
-    } catch {
-      lastResults.push({});
-    }
+    return { messageId: info.messageId, accepted: info.accepted, rejected: info.rejected };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const code = err && typeof err === 'object' && 'responseCode' in err ? err.responseCode : '';
+    console.error('[Implux] SMTP error:', msg, code);
+    throw new Error(
+      `Email could not be sent${code ? ` (${code})` : ''}. ${msg} — Check Zoho SMTP settings, app password, and that "From" matches your Zoho mailbox or an allowed alias.`
+    );
   }
-
-  return lastResults[lastResults.length - 1] || {};
 }
