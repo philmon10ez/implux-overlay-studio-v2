@@ -4,7 +4,6 @@
  * Set SMTP_USER, SMTP_PASS, and optionally SMTP_FROM, SMTP_HOST, SMTP_PORT in the app environment.
  */
 import { Buffer } from 'node:buffer';
-import nodemailer from 'nodemailer';
 import {
   OVERLAY_TYPE_OPTIONS,
   PLACEMENT_OPTIONS,
@@ -96,12 +95,14 @@ function buildTextBody({
   return lines.join('\n');
 }
 
-function getSmtpTransport() {
+/** Dynamic import keeps nodemailer off the critical SSR path (avoids top-level import in server bundle). */
+async function createSmtpTransport() {
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
   if (!user || !pass) {
     return null;
   }
+  const nodemailer = (await import('nodemailer')).default;
   const host = process.env.SMTP_HOST || 'smtp.zoho.com';
   const port = Number(process.env.SMTP_PORT || '465');
   const secure =
@@ -125,7 +126,7 @@ function getSmtpTransport() {
  * @param {Array<object>} opts.rows - parsed request rows (image as buffer + imageName optional)
  */
 export async function sendOverlayRequestEmail({ shop, vendorName, submissionOrderId, rows }) {
-  const transport = getSmtpTransport();
+  const transport = await createSmtpTransport();
   const from =
     process.env.SMTP_FROM ||
     (process.env.SMTP_USER ? `Implux Requests <${process.env.SMTP_USER}>` : null);

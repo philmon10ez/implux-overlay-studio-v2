@@ -4,6 +4,10 @@ import { defineConfig } from 'vite';
 const host = new URL(process.env.SHOPIFY_APP_URL || process.env.APP_URL || 'http://localhost').hostname;
 
 export default defineConfig({
+  // Nodemailer is CommonJS-heavy; load from node_modules at runtime, not bundled into SSR.
+  ssr: {
+    external: ['nodemailer'],
+  },
   server: {
     allowedHosts: [host],
     port: Number(process.env.PORT || 3000),

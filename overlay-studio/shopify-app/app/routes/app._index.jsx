@@ -278,15 +278,20 @@ export const loader = async ({ request }) => {
 
   let activeCampaignCount = 0;
   if (shop) {
-    const normalized = shop.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const result = await prisma.$queryRaw`
-      SELECT COUNT(c.id)::int as count
-      FROM "Campaign" c
-      INNER JOIN "Merchant" m ON c."merchantId" = m.id
-      WHERE (m."shopifyDomain" = ${normalized} OR m."shopifyDomain" = ${`https://${normalized}`})
-        AND c.status = 'active'
-    `;
-    activeCampaignCount = result?.[0]?.count ?? 0;
+    try {
+      const normalized = shop.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+      const result = await prisma.$queryRaw`
+        SELECT COUNT(c.id)::int as count
+        FROM "Campaign" c
+        INNER JOIN "Merchant" m ON c."merchantId" = m.id
+        WHERE (m."shopifyDomain" = ${normalized} OR m."shopifyDomain" = ${`https://${normalized}`})
+          AND c.status = 'active'
+      `;
+      activeCampaignCount = result?.[0]?.count ?? 0;
+    } catch (e) {
+      console.warn('[Implux] active campaign count query failed (non-fatal):', e?.message || e);
+      activeCampaignCount = 0;
+    }
   }
 
   const shopLabel = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
