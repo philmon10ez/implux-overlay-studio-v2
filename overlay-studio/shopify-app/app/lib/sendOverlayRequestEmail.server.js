@@ -110,11 +110,18 @@ async function createSmtpTransport() {
       ? process.env.SMTP_SECURE === 'true'
       : port === 465;
 
+  // Without these, a bad host/firewall/Zoho issue can hang the TCP/TLS handshake forever and the Remix action never returns.
+  const connectionTimeout = Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || '20000');
+  const socketTimeout = Number(process.env.SMTP_SOCKET_TIMEOUT_MS || '120000');
+
   return nodemailer.createTransport({
     host,
     port,
     secure,
     auth: { user, pass },
+    connectionTimeout,
+    greetingTimeout: Math.min(15000, connectionTimeout),
+    socketTimeout,
   });
 }
 
@@ -160,15 +167,23 @@ export async function sendOverlayRequestEmail({ shop, vendorName, submissionOrde
     }
   });
 
+  const sendDeadlineMs = Number(process.env.SMTP_SEND_DEADLINE_MS || '180000');
+  const sendPromise = transport.sendMail({
+    from,
+    to: recipients,
+    subject,
+    text,
+    html,
+    attachments: attachments.length ? attachments : undefined,
+  });
+
   try {
-    const info = await transport.sendMail({
-      from,
-      to: recipients,
-      subject,
-      text,
-      html,
-      attachments: attachments.length ? attachments : undefined,
-    });
+    const info = await Promise.race([
+      sendPromise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`SMTP send timed out after ${sendDeadlineMs}ms`)), sendDeadlineMs)
+      ),
+    ]);
     return { messageId: info.messageId, accepted: info.accepted, rejected: info.rejected };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -177,5 +192,11 @@ export async function sendOverlayRequestEmail({ shop, vendorName, submissionOrde
     throw new Error(
       `Email could not be sent${code ? ` (${code})` : ''}. ${msg} — Check Zoho SMTP settings, app password, and that "From" matches your Zoho mailbox or an allowed alias.`
     );
+  } finally {
+    try {
+      transport.close();
+    } catch {
+      /* ignore */
+    }
   }
 }
