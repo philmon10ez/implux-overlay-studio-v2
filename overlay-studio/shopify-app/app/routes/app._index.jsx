@@ -1,12 +1,14 @@
 import { json } from '@remix-run/node';
+import { useCallback, useState } from 'react';
 import { useLoaderData } from '@remix-run/react';
-import { Page, Layout, Text, Card, BlockStack, Button } from '@shopify/polaris';
+import { Page, Layout, Text, Card, BlockStack, Button, Tabs } from '@shopify/polaris';
 import { TitleBar } from '@shopify/app-bridge-react';
 import { Buffer } from 'node:buffer';
 import { authenticate } from '../shopify.server.js';
 import prisma, { ensureOverlaySubmissionTable } from '../db.server.js';
 import { sendOverlayRequestEmail, formatSubmissionOrderId } from '../lib/sendOverlayRequestEmail.server.js';
 import OverlayRequestForm from '../components/OverlayRequestForm.jsx';
+import ShopCampaignList from '../components/ShopCampaignList.jsx';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://your-overlay-studio.vercel.app';
 
@@ -277,9 +279,11 @@ export const loader = async ({ request }) => {
   }
 
   let activeCampaignCount = 0;
+  /** @type {{ id: number, name: string, status: string }[]} */
+  let shopCampaigns = [];
   if (shop) {
+    const normalized = shop.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
     try {
-      const normalized = shop.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
       const result = await prisma.$queryRaw`
         SELECT COUNT(c.id)::int as count
         FROM "Campaign" c
@@ -290,7 +294,25 @@ export const loader = async ({ request }) => {
       activeCampaignCount = result?.[0]?.count ?? 0;
     } catch (e) {
       console.warn('[Implux] active campaign count query failed (non-fatal):', e?.message || e);
-      activeCampaignCount = 0;
+    }
+    try {
+      const rows = await prisma.$queryRaw`
+        SELECT c.id, c.name, c.status
+        FROM "Campaign" c
+        INNER JOIN "Merchant" m ON c."merchantId" = m.id
+        WHERE (m."shopifyDomain" = ${normalized} OR m."shopifyDomain" = ${`https://${normalized}`})
+          AND c.status IN ('active', 'paused')
+        ORDER BY c.name ASC
+      `;
+      shopCampaigns = Array.isArray(rows)
+        ? rows.map((r) => ({
+            id: Number(r.id),
+            name: String(r.name ?? ''),
+            status: String(r.status ?? ''),
+          }))
+        : [];
+    } catch (e) {
+      console.warn('[Implux] shop campaigns list query failed (non-fatal):', e?.message || e);
     }
   }
 
@@ -301,6 +323,7 @@ export const loader = async ({ request }) => {
 
   return {
     activeCampaignCount,
+    shopCampaigns,
     frontendUrl: FRONTEND_URL,
     shopLabel,
     vendorName,
@@ -308,38 +331,66 @@ export const loader = async ({ request }) => {
   };
 };
 
+const MAIN_TABS = [
+  { id: 'overlay-requests', content: 'Request overlay designs', panelID: 'overlay-requests-panel' },
+  { id: 'shop-campaigns', content: 'Active campaigns', panelID: 'shop-campaigns-panel' },
+];
+
 export default function AppIndex() {
-  const { activeCampaignCount, frontendUrl, shopLabel, vendorName, showOpenCampaigns } = useLoaderData();
+  const { activeCampaignCount, shopCampaigns, frontendUrl, shopLabel, vendorName, showOpenCampaigns } =
+    useLoaderData();
+  const [selectedTab, setSelectedTab] = useState(0);
+  const handleTabChange = useCallback((index) => setSelectedTab(index), []);
 
   return (
     <Page>
       <TitleBar title="Implux.io" />
       <BlockStack gap="500">
-        <Layout>
-          <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <Text as="h1" variant="headingLg">
-                  Implux is active
-                </Text>
-                <Text as="p" variant="bodyMd" tone="subdued">
-                  Your campaigns are managed from your Implux dashboard.
-                </Text>
-                <Text as="p" variant="bodyMd">
-                  Active campaigns for this shop: <strong>{activeCampaignCount}</strong>
-                </Text>
-                {showOpenCampaigns ? (
-                  <Button url={`${frontendUrl.replace(/\/$/, '')}/campaigns`} variant="primary" external>
-                    Open Campaigns (admin.implux.io)
-                  </Button>
-                ) : null}
-              </BlockStack>
-            </Card>
-          </Layout.Section>
-          <Layout.Section>
-            <OverlayRequestForm shopLabel={shopLabel} vendorName={vendorName} />
-          </Layout.Section>
-        </Layout>
+        <Tabs tabs={MAIN_TABS} selected={selectedTab} onSelect={handleTabChange} fitted>
+          {selectedTab === 0 ? (
+            <Layout>
+              <Layout.Section>
+                <Card>
+                  <BlockStack gap="400">
+                    <Text as="h1" variant="headingLg">
+                      Implux is active
+                    </Text>
+                    <Text as="p" variant="bodyMd" tone="subdued">
+                      Your campaigns are managed from your Implux dashboard.
+                    </Text>
+                    <Text as="p" variant="bodyMd">
+                      Active campaigns for this shop: <strong>{activeCampaignCount}</strong>
+                    </Text>
+                    {showOpenCampaigns ? (
+                      <Button url={`${frontendUrl.replace(/\/$/, '')}/campaigns`} variant="primary" external>
+                        Open Campaigns (admin.implux.io)
+                      </Button>
+                    ) : null}
+                  </BlockStack>
+                </Card>
+              </Layout.Section>
+              <Layout.Section>
+                <OverlayRequestForm shopLabel={shopLabel} vendorName={vendorName} />
+              </Layout.Section>
+            </Layout>
+          ) : (
+            <Layout>
+              <Layout.Section>
+                <Card>
+                  <BlockStack gap="400">
+                    <Text as="h2" variant="headingMd">
+                      Active campaigns
+                    </Text>
+                    <Text as="p" variant="bodyMd" tone="subdued">
+                      Campaigns your team has published for this store. Green means live; yellow means paused.
+                    </Text>
+                    <ShopCampaignList campaigns={shopCampaigns} />
+                  </BlockStack>
+                </Card>
+              </Layout.Section>
+            </Layout>
+          )}
+        </Tabs>
       </BlockStack>
     </Page>
   );
