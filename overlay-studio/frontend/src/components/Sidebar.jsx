@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, Link } from 'react-router-dom';
 import api from '../lib/api';
 
 const nav = [
@@ -19,8 +19,19 @@ export default function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-56 bg-poptek-rail text-white">
-      <div className="flex h-14 items-center border-b border-white/15 px-4">
-        <span className="font-semibold tracking-tight text-white">Poptek</span>
+      <div className="flex h-14 min-h-14 items-center border-b border-white/15 px-3">
+        <Link
+          to="/dashboard"
+          className="flex min-w-0 flex-1 items-center py-1.5"
+          aria-label="Poptek home"
+        >
+          <img
+            src="/poptek-logo.png"
+            alt="Poptek"
+            className="h-9 max-h-10 w-auto max-w-full object-contain object-left"
+            decoding="async"
+          />
+        </Link>
       </div>
       <nav className="mt-4 space-y-0.5 px-2">
         {nav.map(({ to, label, icon }) => (
