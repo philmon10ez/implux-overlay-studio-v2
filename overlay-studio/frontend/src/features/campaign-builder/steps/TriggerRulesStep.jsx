@@ -55,7 +55,7 @@ export default function TriggerRulesStep({ type, triggerConfig, setTriggerConfig
                     onClick={() => setTriggerConfig((t) => ({ ...t, scrollDepthPercent: p }))}
                     className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                       triggerConfig.scrollDepthPercent === p
-                        ? 'border-accent bg-accent text-white'
+                        ? 'border-poptek-action bg-poptek-action text-white'
                         : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                     }`}
                   >

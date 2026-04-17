@@ -66,7 +66,7 @@ export default function ReviewStep({
           type="button"
           onClick={publish}
           disabled={saving}
-          className="rounded-lg bg-accent px-4 py-2 font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+          className="rounded-lg bg-poptek-action px-4 py-2 font-medium text-white hover:bg-poptek-action/90 disabled:opacity-50"
         >
           Publish Campaign
         </button>

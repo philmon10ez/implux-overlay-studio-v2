@@ -101,7 +101,7 @@ export default function SetupStep({
                 }
               }}
               className={`flex flex-col items-center rounded-lg border-2 p-4 text-center transition ${
-                type === t.id ? 'border-accent bg-accent/10' : 'border-gray-200 hover:border-gray-300'
+                type === t.id ? 'border-poptek-action bg-poptek-action/10' : 'border-gray-200 hover:border-gray-300'
               }`}
             >
               <span className="text-2xl">{t.icon}</span>

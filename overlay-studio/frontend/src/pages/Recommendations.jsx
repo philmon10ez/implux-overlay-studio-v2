@@ -10,7 +10,7 @@ import { getPresetLabel } from '../features/recommendations/presets/recommendati
 function SetCard({ row, merchantId, onDelete }) {
   const presetLabel = row.presetKey ? getPresetLabel(row.presetKey) : null;
   return (
-    <article className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-card transition-colors hover:border-accent/25">
+    <article className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-card transition-colors hover:border-poptek-action/25">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-gray-900 line-clamp-2">{row.name}</h2>
@@ -31,7 +31,7 @@ function SetCard({ row, merchantId, onDelete }) {
       <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-4">
         <Link
           to={`/recommendations/${row.id}/edit?merchantId=${merchantId}&step=2`}
-          className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90"
+          className="rounded-lg bg-poptek-action px-3 py-1.5 text-sm font-medium text-white hover:bg-poptek-action/90"
         >
           Edit
         </Link>
@@ -151,7 +151,7 @@ export default function Recommendations() {
         <Link
           to={newHref}
           className={`inline-flex justify-center rounded-lg px-4 py-2 text-sm font-medium text-white ${
-            merchantId ? 'bg-accent hover:bg-accent/90' : 'cursor-not-allowed bg-gray-300'
+            merchantId ? 'bg-poptek-action hover:bg-poptek-action/90' : 'cursor-not-allowed bg-gray-300'
           }`}
           onClick={(e) => {
             if (!merchantId) e.preventDefault();
@@ -195,7 +195,7 @@ export default function Recommendations() {
           value={merchantId}
           onChange={(e) => setMerchantFilter(e.target.value)}
           disabled={!!merchantsLoadError && merchants.length === 0}
-          className="mt-2 max-w-md rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-gray-50"
+          className="mt-2 max-w-md rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:border-poptek-action focus:outline-none focus:ring-2 focus:ring-poptek-action/20 disabled:cursor-not-allowed disabled:bg-gray-50"
         >
           <option value="">{merchants.length === 0 ? 'No stores available' : 'Select a merchant…'}</option>
           {merchants.map((m) => (
@@ -242,7 +242,7 @@ export default function Recommendations() {
         </div>
       ) : sets.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-dashed border-gray-300 bg-gradient-to-b from-white to-gray-50/80 px-6 py-16 text-center shadow-card">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 text-2xl">✨</div>
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-poptek-action/10 text-2xl">✨</div>
           <h2 className="mt-4 text-lg font-semibold text-gray-900">No recommendation sets yet</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-gray-500">
             Build your first set: pick a placement, attach products, and define optional trigger rules. You can save as
@@ -250,7 +250,7 @@ export default function Recommendations() {
           </p>
           <Link
             to={newHref}
-            className="mt-6 inline-flex rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-accent/90"
+            className="mt-6 inline-flex rounded-lg bg-poptek-action px-5 py-2.5 text-sm font-medium text-white hover:bg-poptek-action/90"
           >
             Create recommendation set
           </Link>

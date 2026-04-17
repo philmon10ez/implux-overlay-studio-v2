@@ -9,7 +9,7 @@
  *
  * Full implementation plan: repository root FEATURE_ROADMAP.md
  *
- * Conventions: match existing Tailwind tokens (accent, gray scale, rounded-lg borders).
+ * Conventions: match existing Tailwind tokens (poptek-action / gray scale / rounded-lg borders).
  * Do not import from here into overlay-engine (storefront); share only documented JSON shapes.
  */
 

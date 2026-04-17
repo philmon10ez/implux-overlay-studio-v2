@@ -200,7 +200,7 @@ export default function CampaignBuilder() {
             type="button"
             onClick={() => setStep(i + 1)}
             className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
-              step >= i + 1 ? 'bg-accent text-white' : 'bg-gray-200 text-gray-500'
+              step >= i + 1 ? 'bg-poptek-action text-white' : 'bg-gray-200 text-gray-500'
             }`}
           >
             {i + 1}. {label}
@@ -292,7 +292,7 @@ export default function CampaignBuilder() {
             <button
               type="button"
               onClick={next}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
+              className="rounded-lg bg-poptek-action px-4 py-2 text-sm font-medium text-white hover:bg-poptek-action/90"
             >
               Next
             </button>

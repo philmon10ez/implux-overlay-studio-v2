@@ -30,7 +30,7 @@ function SingleProductCard({
   const pad = comfortable ? 'p-5' : 'p-3.5';
   return (
     <div
-      className={`rounded-xl border-2 border-accent/25 bg-white shadow-lg shadow-accent/5 ring-1 ring-accent/10 ${pad}`}
+      className={`rounded-xl border-2 border-poptek-action/25 bg-white shadow-lg shadow-poptek-action/5 ring-1 ring-poptek-action/10 ${pad}`}
     >
       {(headline && headline.trim()) || (subcopy && subcopy.trim()) ? (
         <div className={comfortable ? 'mb-4' : 'mb-2.5'}>
@@ -61,7 +61,7 @@ function SingleProductCard({
           ) : null}
           <button
             type="button"
-            className={`mt-3 w-full cursor-default rounded-lg bg-accent font-medium text-white sm:w-auto ${
+            className={`mt-3 w-full cursor-default rounded-lg bg-poptek-action font-medium text-white sm:w-auto ${
               comfortable ? 'px-5 py-2.5 text-sm' : 'px-3 py-1.5 text-[10px]'
             }`}
           >
@@ -75,12 +75,12 @@ function SingleProductCard({
 
 function CarouselCard({ cta, title, imageUrl }) {
   return (
-    <div className="w-[min(100%,220px)] shrink-0 snap-start rounded-xl border-2 border-accent/20 bg-white p-3 shadow-md shadow-accent/5 ring-1 ring-accent/10">
+    <div className="w-[min(100%,220px)] shrink-0 snap-start rounded-xl border-2 border-poptek-action/20 bg-white p-3 shadow-md shadow-poptek-action/5 ring-1 ring-poptek-action/10">
       <ProductThumbMemo imageUrl={imageUrl} title={title || 'Product'} size="sm" />
       <p className="mt-2 line-clamp-2 text-xs font-medium text-gray-900">{title}</p>
       <button
         type="button"
-        className="mt-2 w-full cursor-default rounded-lg bg-accent px-3 py-1.5 text-[10px] font-medium text-white"
+        className="mt-2 w-full cursor-default rounded-lg bg-poptek-action px-3 py-1.5 text-[10px] font-medium text-white"
       >
         {cta}
       </button>
@@ -176,7 +176,7 @@ function RecommendationWidgetPreviewInner({
         </div>
       </div>
       {(headline && headline.trim()) || (subcopy && subcopy.trim()) ? (
-        <div className="mb-3 rounded-lg border border-accent/15 bg-accent/[0.05] px-3 py-2.5">
+        <div className="mb-3 rounded-lg border border-poptek-action/15 bg-poptek-action/[0.05] px-3 py-2.5">
           {headline && headline.trim() ? (
             <p className={`font-semibold leading-snug text-gray-900 ${comfortable ? 'text-sm' : 'text-xs'}`}>
               {headline.trim()}

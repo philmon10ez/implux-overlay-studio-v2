@@ -23,7 +23,7 @@ export default function TriggerConditionsField({ value, onChange, error, syntaxO
             ? 'border-red-400 bg-red-50/40 ring-1 ring-red-200/80'
             : showValid
               ? 'border-emerald-300 bg-emerald-50/30 ring-1 ring-emerald-200/60 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-200'
-              : 'border-gray-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
+              : 'border-gray-200 focus:border-poptek-action focus:outline-none focus:ring-2 focus:ring-poptek-action/20'
         }`}
         placeholder={TRIGGER_JSON_PLACEHOLDER}
       />

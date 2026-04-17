@@ -102,7 +102,7 @@ export default function Merchants() {
         <button
           type="button"
           onClick={openAdd}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
+          className="rounded-lg bg-poptek-action px-4 py-2 text-sm font-medium text-white hover:bg-poptek-action/90"
         >
           Add Merchant
         </button>
@@ -126,7 +126,7 @@ export default function Merchants() {
                 <button
                   type="button"
                   onClick={() => openEdit(row)}
-                  className="text-accent hover:underline"
+                  className="text-poptek-action hover:underline"
                 >
                   Edit
                 </button>
@@ -206,7 +206,7 @@ export default function Merchants() {
               <button
                 type="button"
                 onClick={save}
-                className="rounded bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
+                className="rounded bg-poptek-action px-4 py-2 text-sm font-medium text-white hover:bg-poptek-action/90"
               >
                 Save
               </button>

@@ -49,7 +49,7 @@ export default function ProductPagePreview({ widget }) {
                   <div
                     key={i}
                     className={`h-14 w-14 shrink-0 rounded-lg ring-1 ${
-                      i === 0 ? 'ring-accent/40' : 'ring-gray-200/80'
+                      i === 0 ? 'ring-poptek-action/40' : 'ring-gray-200/80'
                     } bg-gray-100`}
                   />
                 ))}
@@ -57,7 +57,7 @@ export default function ProductPagePreview({ widget }) {
             </div>
 
             <div className="space-y-3 lg:pt-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-accent/90">{pdp.category}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-poptek-action/90">{pdp.category}</p>
               <h1 className="text-lg font-bold leading-tight text-gray-900 sm:text-xl">{pdp.productTitle}</h1>
               <div className="flex flex-wrap items-baseline gap-2">
                 <span className="text-xl font-semibold text-gray-900">{fmtMoney(pdp.price)}</span>
@@ -74,7 +74,7 @@ export default function ProductPagePreview({ widget }) {
                   <span
                     key={s}
                     className={`cursor-default rounded-lg border px-3 py-1.5 text-xs font-medium ${
-                      idx === 2 ? 'border-accent bg-accent/10 text-accent' : 'border-gray-200 text-gray-700'
+                      idx === 2 ? 'border-poptek-action bg-poptek-action/10 text-poptek-action' : 'border-gray-200 text-gray-700'
                     }`}
                   >
                     {s}

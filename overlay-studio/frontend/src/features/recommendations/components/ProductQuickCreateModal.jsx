@@ -118,7 +118,7 @@ export default function ProductQuickCreateModal({ open, onClose, merchantId, onC
           <button
             type="submit"
             disabled={saving}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+            className="rounded-lg bg-poptek-action px-4 py-2 text-sm font-medium text-white hover:bg-poptek-action/90 disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Create product'}
           </button>

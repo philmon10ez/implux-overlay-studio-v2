@@ -2,7 +2,7 @@ import { useState } from 'react';
 import OverlayPreview from '../../../components/OverlayPreview';
 
 const inputBase =
-  'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20';
+  'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm transition-colors focus:border-poptek-action focus:outline-none focus:ring-2 focus:ring-poptek-action/20';
 
 function DesignPanel({ title, description, children }) {
   return (
@@ -38,7 +38,7 @@ export default function DesignerStep({
         </header>
 
         {type === 'exit_intent' && (
-          <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 sm:p-5">
+          <div className="rounded-xl border border-poptek-action/30 bg-poptek-action/5 p-4 sm:p-5">
             <h3 className="text-sm font-semibold text-gray-900">Exit intent flow</h3>
             <p className="mt-1 text-xs leading-relaxed text-gray-600">
               Shoppers first see a quick confirmation when they try to leave; if they stay, they see your main offer below.
@@ -311,7 +311,7 @@ export default function DesignerStep({
                       spinSegments: [...(d.spinSegments || []), { label: 'New prize', weight: 1, code: '' }],
                     }))
                   }
-                  className="text-xs font-medium text-accent hover:underline"
+                  className="text-xs font-medium text-poptek-action hover:underline"
                 >
                   Add slice
                 </button>
@@ -679,7 +679,7 @@ export default function DesignerStep({
                     r.onload = () => setDesignConfig((d) => ({ ...d, imageDataUrl: r.result }));
                     r.readAsDataURL(f);
                   }}
-                  className="mt-2 text-sm text-gray-700 file:mr-2 file:rounded-lg file:border-0 file:bg-accent/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent hover:file:bg-accent/15"
+                  className="mt-2 text-sm text-gray-700 file:mr-2 file:rounded-lg file:border-0 file:bg-poptek-action/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-poptek-action hover:file:bg-poptek-action/15"
                 />
               </div>
               <div>

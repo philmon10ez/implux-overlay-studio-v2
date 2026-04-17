@@ -26,7 +26,7 @@ export default function CheckoutPagePreview({ widget }) {
               <span
                 key={s}
                 className={`rounded-full px-2.5 py-0.5 text-[9px] font-semibold ${
-                  i === 3 ? 'bg-accent/15 text-accent' : 'bg-gray-100 text-gray-500'
+                  i === 3 ? 'bg-poptek-action/15 text-poptek-action' : 'bg-gray-100 text-gray-500'
                 }`}
               >
                 {s}
@@ -45,8 +45,8 @@ export default function CheckoutPagePreview({ widget }) {
               <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
                 <p className="text-xs font-semibold text-gray-800">Shipping method</p>
                 <div className="mt-3 space-y-2">
-                  <label className="flex cursor-default items-center gap-2 rounded-lg border border-accent/30 bg-accent/[0.06] px-3 py-2">
-                    <span className="h-3 w-3 rounded-full border-2 border-accent bg-accent" />
+                  <label className="flex cursor-default items-center gap-2 rounded-lg border border-poptek-action/30 bg-poptek-action/[0.06] px-3 py-2">
+                    <span className="h-3 w-3 rounded-full border-2 border-poptek-action bg-poptek-action" />
                     <span className="text-xs text-gray-800">Standard · FREE</span>
                   </label>
                   <label className="flex cursor-default items-center gap-2 rounded-lg border border-gray-200 px-3 py-2">
@@ -84,7 +84,7 @@ export default function CheckoutPagePreview({ widget }) {
 
               <button
                 type="button"
-                className="w-full cursor-default rounded-xl bg-accent py-2.5 text-sm font-semibold text-white shadow-sm"
+                className="w-full cursor-default rounded-xl bg-poptek-action py-2.5 text-sm font-semibold text-white shadow-sm"
               >
                 Pay now
               </button>

@@ -18,7 +18,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-56 bg-sidebar text-white">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-56 bg-poptek-rail text-white">
       <div className="flex h-14 items-center border-b border-white/15 px-4">
         <span className="font-semibold tracking-tight text-white">Poptek</span>
       </div>

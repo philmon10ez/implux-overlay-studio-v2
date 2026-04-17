@@ -132,7 +132,7 @@ export default function Rakuten() {
           type="button"
           onClick={connect}
           disabled={testing}
-          className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+          className="mt-4 rounded-lg bg-poptek-action px-4 py-2 text-sm font-medium text-white hover:bg-poptek-action/90 disabled:opacity-50"
         >
           {testing ? 'Testing...' : 'Connect & Test'}
         </button>
@@ -147,7 +147,7 @@ export default function Rakuten() {
                 type="button"
                 onClick={() => setTab(t)}
                 className={`border-b-2 px-4 py-2 text-sm font-medium capitalize ${
-                  tab === t ? 'border-accent text-accent' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  tab === t ? 'border-poptek-action text-poptek-action' : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 {t}
@@ -210,7 +210,7 @@ export default function Rakuten() {
               <button
                 type="button"
                 onClick={runSync}
-                className="mt-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
+                className="mt-2 rounded-lg bg-poptek-action px-4 py-2 text-sm font-medium text-white hover:bg-poptek-action/90"
               >
                 Run Manual Sync
               </button>

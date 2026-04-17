@@ -69,7 +69,7 @@ export function LoadingBlock({ label = 'Loading…', sub }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-gray-100 bg-gray-50/80 px-6 py-10">
       <span
-        className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-accent"
+        className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-poptek-action"
         aria-hidden
       />
       <div className="text-center">

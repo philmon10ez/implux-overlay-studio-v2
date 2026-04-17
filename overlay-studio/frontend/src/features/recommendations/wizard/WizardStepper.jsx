@@ -22,9 +22,9 @@ export default function WizardStepper({ currentStep }) {
               <div
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-all sm:h-10 sm:w-10 ${
                   isDone
-                    ? 'bg-accent text-white shadow-sm'
+                    ? 'bg-poptek-action text-white shadow-sm'
                     : isActive
-                      ? 'bg-accent/15 text-accent ring-2 ring-accent ring-offset-2 ring-offset-white'
+                      ? 'bg-poptek-action/15 text-poptek-action ring-2 ring-poptek-action ring-offset-2 ring-offset-white'
                       : 'bg-gray-100 text-gray-400'
                 }`}
                 aria-current={isActive ? 'step' : undefined}
@@ -58,7 +58,7 @@ export default function WizardStepper({ currentStep }) {
       </div>
       <div className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
         <div
-          className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out"
+          className="h-full rounded-full bg-poptek-action transition-[width] duration-300 ease-out"
           style={{ width: `${pct}%` }}
           role="progressbar"
           aria-valuenow={currentStep}

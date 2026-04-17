@@ -72,7 +72,7 @@ export default function Settings() {
             >
               <option value="admin">Admin</option>
             </select>
-            <button type="submit" className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90">
+            <button type="submit" className="rounded-lg bg-poptek-action px-4 py-2 text-sm font-medium text-white hover:bg-poptek-action/90">
               Add User
             </button>
           </form>

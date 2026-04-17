@@ -301,7 +301,7 @@ export default function RecommendationAssistantPanel({
                                 className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold transition ${
                                   applied
                                     ? 'border border-emerald-200 bg-emerald-50 text-emerald-900'
-                                    : 'bg-accent text-white shadow-sm hover:bg-accent/90'
+                                    : 'bg-poptek-action text-white shadow-sm hover:bg-poptek-action/90'
                                 }`}
                               >
                                 {applied ? 'Applied ✓' : 'Apply to draft'}

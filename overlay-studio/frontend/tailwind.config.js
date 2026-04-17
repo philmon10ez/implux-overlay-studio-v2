@@ -5,10 +5,16 @@ export default {
     extend: {
       fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
       colors: {
-        /** Lighter blue — primary CTAs, links, charts */
+        /**
+         * Poptek brand — `poptek-rail` / `poptek-action` avoid `accent` naming quirks in Tailwind.
+         * Rail #214ABC (darker) · CTAs #224BBD (lighter)
+         */
+        poptek: {
+          rail: '#214ABC',
+          action: '#224BBD',
+        },
         accent: '#224BBD',
         primary: '#224BBD',
-        /** Darker blue — sidebar rail */
         secondary: '#214ABC',
         sidebar: '#214ABC',
       },

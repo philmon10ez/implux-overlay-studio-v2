@@ -56,7 +56,7 @@ export default function ProductPickerModal({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search by title or SKU…"
-            className="mb-4 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="mb-4 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-poptek-action focus:outline-none focus:ring-2 focus:ring-poptek-action/20"
             disabled={!!loadError}
           />
           {filtered.length === 0 ? (
@@ -100,7 +100,7 @@ export default function ProductPickerModal({
                       type="button"
                       disabled={taken}
                       onClick={() => onAdd(p)}
-                      className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="shrink-0 rounded-lg bg-poptek-action px-3 py-1.5 text-sm font-medium text-white hover:bg-poptek-action/90 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {taken ? 'Added' : 'Add'}
                     </button>

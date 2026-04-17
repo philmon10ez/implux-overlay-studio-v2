@@ -805,7 +805,7 @@ export default function RecommendationSetEditor() {
   return (
     <div className="mx-auto max-w-7xl px-1 pb-32 sm:px-0">
       <div className="mb-6">
-        <Link to={listHref} className="text-sm font-medium text-accent hover:underline">
+        <Link to={listHref} className="text-sm font-medium text-poptek-action hover:underline">
           ← Back to recommendations
         </Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">
@@ -829,7 +829,7 @@ export default function RecommendationSetEditor() {
             <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
               {remoteSaveStatus === 'saving' ? (
                 <span className="inline-flex items-center gap-1.5 text-gray-600">
-                  <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-200 border-t-accent" aria-hidden />
+                  <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-200 border-t-poptek-action" aria-hidden />
                   Saving to server…
                 </span>
               ) : null}
@@ -851,7 +851,7 @@ export default function RecommendationSetEditor() {
                       setRemoteSaveError(null);
                       save(false);
                     }}
-                    className="font-medium text-accent underline decoration-accent/40 underline-offset-2 hover:text-accent/90"
+                    className="font-medium text-poptek-action underline decoration-poptek-action/40 underline-offset-2 hover:text-poptek-action/90"
                   >
                     Retry save
                   </button>
@@ -919,14 +919,14 @@ export default function RecommendationSetEditor() {
                   onClick={() => applyPreset(p.id)}
                   className={`rounded-2xl border-2 p-4 text-left transition-all ${
                     presetSelectionId === p.id
-                      ? 'border-accent bg-accent/[0.06] shadow-sm ring-1 ring-accent/25'
+                      ? 'border-poptek-action bg-poptek-action/[0.06] shadow-sm ring-1 ring-poptek-action/25'
                       : 'border-gray-100 bg-gray-50/50 hover:border-gray-200'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-sm font-semibold text-gray-900">{p.title}</span>
                     {p.badge ? (
-                      <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                      <span className="shrink-0 rounded-full bg-poptek-action/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-poptek-action">
                         {p.badge}
                       </span>
                     ) : null}
@@ -942,7 +942,7 @@ export default function RecommendationSetEditor() {
                 onClick={() => applyPreset(SCRATCH_ID)}
                 className={`rounded-2xl border-2 border-dashed p-4 text-left transition-all sm:col-span-2 ${
                   presetSelectionId === SCRATCH_ID
-                    ? 'border-accent bg-accent/[0.04] ring-1 ring-accent/20'
+                    ? 'border-poptek-action bg-poptek-action/[0.04] ring-1 ring-poptek-action/20'
                     : 'border-gray-200 bg-white hover:border-gray-300'
                 }`}
               >
@@ -1000,7 +1000,7 @@ export default function RecommendationSetEditor() {
                       <select
                         value={merchantId}
                         onChange={(e) => setMerchantId(e.target.value)}
-                        className="mt-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                        className="mt-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm transition-colors focus:border-poptek-action focus:outline-none focus:ring-2 focus:ring-poptek-action/20"
                       >
                         <option value="">Select store…</option>
                         {merchants.map((m) => (
@@ -1022,7 +1022,7 @@ export default function RecommendationSetEditor() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="e.g. Cart — matching accessories"
-                      className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm transition-colors focus:border-poptek-action focus:outline-none focus:ring-2 focus:ring-poptek-action/20"
                     />
                   </div>
                 </SectionCard>
@@ -1038,7 +1038,7 @@ export default function RecommendationSetEditor() {
                         onClick={() => setPlacementType(opt.value)}
                         className={`rounded-2xl border-2 p-4 text-left transition-all ${
                           placementType === opt.value
-                            ? 'border-accent bg-accent/[0.06] shadow-sm ring-1 ring-accent/25'
+                            ? 'border-poptek-action bg-poptek-action/[0.06] shadow-sm ring-1 ring-poptek-action/25'
                             : 'border-gray-100 bg-gray-50/50 hover:border-gray-200'
                         }`}
                       >
@@ -1070,7 +1070,7 @@ export default function RecommendationSetEditor() {
                     type="button"
                     disabled={!merchantId}
                     onClick={() => setPickerOpen(true)}
-                    className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-xl bg-poptek-action px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-poptek-action/90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Browse catalog
                   </button>
@@ -1116,7 +1116,7 @@ export default function RecommendationSetEditor() {
                 {merchantId && catalogLoading ? (
                   <div className="rounded-xl border border-gray-100 bg-gray-50/50 px-4 py-3 text-xs text-gray-600">
                     <span className="inline-flex items-center gap-2">
-                      <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-200 border-t-accent" />
+                      <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-200 border-t-poptek-action" />
                       Loading products from your store…
                     </span>
                   </div>
@@ -1148,7 +1148,7 @@ export default function RecommendationSetEditor() {
                       <input
                         value={presentation.headline}
                         onChange={(e) => setPresentation((prev) => ({ ...prev, headline: e.target.value }))}
-                        className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                        className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-poptek-action focus:outline-none focus:ring-2 focus:ring-poptek-action/20"
                         placeholder="e.g. Complete your look"
                       />
                     </div>
@@ -1159,7 +1159,7 @@ export default function RecommendationSetEditor() {
                         value={presentation.subcopy}
                         onChange={(e) => setPresentation((prev) => ({ ...prev, subcopy: e.target.value }))}
                         rows={2}
-                        className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                        className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-poptek-action focus:outline-none focus:ring-2 focus:ring-poptek-action/20"
                         placeholder="Why these picks matter"
                       />
                     </div>
@@ -1168,7 +1168,7 @@ export default function RecommendationSetEditor() {
                       <input
                         value={presentation.ctaLabel}
                         onChange={(e) => setPresentation((prev) => ({ ...prev, ctaLabel: e.target.value }))}
-                        className="mt-2 w-full max-w-xs rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                        className="mt-2 w-full max-w-xs rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-poptek-action focus:outline-none focus:ring-2 focus:ring-poptek-action/20"
                         placeholder="e.g. Add to cart"
                       />
                     </div>
@@ -1300,7 +1300,7 @@ export default function RecommendationSetEditor() {
                   <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Targeting</p>
                   <p className="mt-1 text-sm text-gray-800">{triggerSummaryLine}</p>
                   <details className="mt-3">
-                    <summary className="cursor-pointer text-xs font-medium text-accent hover:underline">
+                    <summary className="cursor-pointer text-xs font-medium text-poptek-action hover:underline">
                       View raw JSON
                     </summary>
                     <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-gray-50 p-3 font-mono text-[11px] leading-relaxed text-gray-700 ring-1 ring-gray-100">
@@ -1352,7 +1352,7 @@ export default function RecommendationSetEditor() {
                 type="button"
                 disabled={saving}
                 onClick={() => save(true)}
-                className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-50"
+                className="rounded-xl bg-poptek-action px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-poptek-action/90 disabled:opacity-50"
               >
                 {saving ? 'Publishing…' : 'Publish'}
               </button>

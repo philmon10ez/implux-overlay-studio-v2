@@ -153,7 +153,7 @@ export default function Campaigns() {
         <h1 className="text-2xl font-bold text-gray-900">Campaigns</h1>
         <Link
           to="/campaigns/new"
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
+          className="rounded-lg bg-poptek-action px-4 py-2 text-sm font-medium text-white hover:bg-poptek-action/90"
         >
           New Campaign
         </Link>
@@ -235,11 +235,11 @@ export default function Campaigns() {
                 <button
                   type="button"
                   onClick={() => toggleStatus(row)}
-                  className="text-accent hover:underline"
+                  className="text-poptek-action hover:underline"
                 >
                   {row.status === 'active' ? 'Pause' : 'Activate'}
                 </button>
-                <Link to={`/campaigns/${row.id}/edit`} className="text-accent hover:underline">
+                <Link to={`/campaigns/${row.id}/edit`} className="text-poptek-action hover:underline">
                   Edit
                 </Link>
                 <button type="button" onClick={() => duplicate(row)} className="text-gray-600 hover:underline">

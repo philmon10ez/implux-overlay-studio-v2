@@ -18,7 +18,7 @@ export default function SelectedProductsList({ items, onRemove, onMoveUp, onMove
           key={p.id}
           className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm"
         >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/10 text-xs font-semibold text-accent">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-poptek-action/10 text-xs font-semibold text-poptek-action">
             {idx + 1}
           </span>
           <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-gray-100">

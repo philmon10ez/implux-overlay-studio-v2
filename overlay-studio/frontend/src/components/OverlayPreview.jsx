@@ -444,7 +444,7 @@ export default function OverlayPreview({
               type="button"
               onClick={() => setExitPreviewPhase('gate')}
               className={`rounded px-2 py-1 ${
-                exitPreviewPhase === 'gate' ? 'bg-accent text-white' : 'text-gray-600'
+                exitPreviewPhase === 'gate' ? 'bg-poptek-action text-white' : 'text-gray-600'
               }`}
             >
               Gate
@@ -453,7 +453,7 @@ export default function OverlayPreview({
               type="button"
               onClick={() => setExitPreviewPhase('offer')}
               className={`rounded px-2 py-1 ${
-                exitPreviewPhase === 'offer' ? 'bg-accent text-white' : 'text-gray-600'
+                exitPreviewPhase === 'offer' ? 'bg-poptek-action text-white' : 'text-gray-600'
               }`}
             >
               Offer
