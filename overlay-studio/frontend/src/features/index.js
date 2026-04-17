@@ -1,5 +1,5 @@
 /**
- * Feature-based modules for the Implux admin app.
+ * Feature-based modules for the Poptek admin app.
  *
  * Layout (scalable):
  * - campaign-builder/ — wizard constants + steps (DesignerStep, TriggerRulesStep, …); page shell in pages/CampaignBuilder.jsx

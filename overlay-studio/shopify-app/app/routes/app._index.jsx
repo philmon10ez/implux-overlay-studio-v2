@@ -344,7 +344,7 @@ export default function AppIndex() {
 
   return (
     <Page>
-      <TitleBar title="Implux.io" />
+      <TitleBar title="Poptek" />
       <BlockStack gap="500">
         <Tabs tabs={MAIN_TABS} selected={selectedTab} onSelect={handleTabChange} fitted>
           {selectedTab === 0 ? (
@@ -353,17 +353,17 @@ export default function AppIndex() {
                 <Card>
                   <BlockStack gap="400">
                     <Text as="h1" variant="headingLg">
-                      Implux is active
+                      Poptek is active
                     </Text>
                     <Text as="p" variant="bodyMd" tone="subdued">
-                      Your campaigns are managed from your Implux dashboard.
+                      Your campaigns are managed from your Poptek dashboard.
                     </Text>
                     <Text as="p" variant="bodyMd">
                       Active campaigns for this shop: <strong>{activeCampaignCount}</strong>
                     </Text>
                     {showOpenCampaigns ? (
                       <Button url={`${frontendUrl.replace(/\/$/, '')}/campaigns`} variant="primary" external>
-                        Open Campaigns (admin.implux.io)
+                        Open Campaigns
                       </Button>
                     ) : null}
                   </BlockStack>

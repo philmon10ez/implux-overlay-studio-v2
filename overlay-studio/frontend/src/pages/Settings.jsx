@@ -92,7 +92,7 @@ export default function Settings() {
               <label className="block text-xs text-gray-500">Primary</label>
               <input
                 type="color"
-                value={brandColors.primary || '#6c63ff'}
+                value={brandColors.primary || '#224BBD'}
                 onChange={(e) => setBrandColors((b) => ({ ...b, primary: e.target.value }))}
                 className="mt-1 h-10 w-20 cursor-pointer rounded border"
               />

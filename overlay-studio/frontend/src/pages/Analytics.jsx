@@ -108,7 +108,7 @@ export default function Analytics() {
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="impressions" stroke="#6c63ff" strokeWidth={2} name="Impressions" />
+              <Line type="monotone" dataKey="impressions" stroke="#224BBD" strokeWidth={2} name="Impressions" />
               <Line type="monotone" dataKey="conversions" stroke="#10b981" strokeWidth={2} name="Conversions" />
             </LineChart>
           </ResponsiveContainer>
@@ -124,7 +124,7 @@ export default function Analytics() {
               <XAxis type="number" tick={{ fontSize: 12 }} />
               <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Bar dataKey="revenue" fill="#6c63ff" name="Revenue" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="revenue" fill="#224BBD" name="Revenue" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

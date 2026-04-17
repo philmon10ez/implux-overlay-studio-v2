@@ -19,8 +19,8 @@ export default function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-56 bg-sidebar text-white">
-      <div className="flex h-14 items-center border-b border-white/10 px-4">
-        <span className="font-semibold text-accent">Implux.io</span>
+      <div className="flex h-14 items-center border-b border-white/15 px-4">
+        <span className="font-semibold tracking-tight text-white">Poptek</span>
       </div>
       <nav className="mt-4 space-y-0.5 px-2">
         {nav.map(({ to, label, icon }) => (
@@ -29,7 +29,9 @@ export default function Sidebar() {
             to={to}
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                isActive ? 'bg-accent/20 text-accent' : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                isActive
+                  ? 'bg-secondary font-medium text-white shadow-sm'
+                  : 'text-white/85 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -42,7 +44,7 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={handleLogout}
-          className="w-full rounded-lg border border-white/20 px-3 py-2 text-sm text-gray-300 hover:bg-white/10"
+          className="w-full rounded-lg border border-white/25 px-3 py-2 text-sm text-white/90 hover:bg-white/10"
         >
           Log out
         </button>

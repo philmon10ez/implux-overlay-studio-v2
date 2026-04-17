@@ -21,7 +21,7 @@ function ShopifyTestLauncher() {
     <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/80 p-5 shadow-sm">
       <h2 className="text-lg font-semibold text-emerald-900">Shopify dev store — test your campaigns</h2>
       <p className="mt-1 text-sm text-emerald-800/90">
-        After you install the Implux app on a development store, that store is synced automatically. Create a
+        After you install the Poptek app on a development store, that store is synced automatically. Create a
         campaign below for that merchant, publish it as <strong>active</strong>, enable the app embed in the theme,
         then open your storefront to see the overlay.
       </p>
@@ -31,7 +31,7 @@ function ShopifyTestLauncher() {
           install.
         </li>
         <li>
-          <strong>Enable embed:</strong> Online Store → Themes → Customize → App embeds → turn on Implux / overlay
+          <strong>Enable embed:</strong> Online Store → Themes → Customize → App embeds → turn on Poptek / overlay
           engine.
         </li>
         <li>
@@ -74,7 +74,7 @@ function ShopifyTestLauncher() {
         </p>
       )}
       <p className="mt-2 text-xs text-emerald-800/70">
-        From the embedded Shopify app you can also use <strong>Open Campaigns (admin.implux.io)</strong> to land here.
+        From the embedded Shopify app you can also use <strong>Open Campaigns</strong> to land here.
       </p>
     </div>
   );

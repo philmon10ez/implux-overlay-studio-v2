@@ -163,7 +163,7 @@ export default function DesignerStep({
                   <label className="text-xs text-gray-500">Eyebrow color</label>
                   <input
                     type="color"
-                    value={designConfig.exitOfferEyebrowColor ?? '#6c63ff'}
+                    value={designConfig.exitOfferEyebrowColor ?? '#224BBD'}
                     onChange={(e) => setDesignConfig((d) => ({ ...d, exitOfferEyebrowColor: e.target.value }))}
                     className="h-8 w-12 cursor-pointer rounded border border-gray-200"
                     title="Eyebrow color"

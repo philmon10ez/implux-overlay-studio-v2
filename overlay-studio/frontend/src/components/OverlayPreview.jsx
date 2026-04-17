@@ -52,7 +52,7 @@ export default function OverlayPreview({
       {(d.exitOfferEyebrow || '').trim() ? (
         <p
           className="mb-1 text-xs font-semibold uppercase tracking-wide"
-          style={{ color: d.exitOfferEyebrowColor || '#6c63ff' }}
+          style={{ color: d.exitOfferEyebrowColor || '#224BBD' }}
         >
           {d.exitOfferEyebrow}
         </p>
@@ -97,7 +97,7 @@ export default function OverlayPreview({
             type="button"
             className="rounded-lg px-4 py-2 font-medium transition-opacity hover:opacity-90"
             style={{
-              backgroundColor: d.ctaBgColor || '#6c63ff',
+              backgroundColor: d.ctaBgColor || '#224BBD',
               color: d.ctaTextColor || '#fff',
               borderRadius: (d.ctaBorderRadius ?? 8) + 'px',
             }}
@@ -116,7 +116,7 @@ export default function OverlayPreview({
 
   const spinSegments = Array.isArray(d.spinSegments) && d.spinSegments.length ? d.spinSegments : [];
   const spinGradient = (() => {
-    const colors = ['#6c63ff', '#ec4899', '#fbbf24', '#34d399', '#60a5fa', '#f472b6'];
+    const colors = ['#224BBD', '#ec4899', '#fbbf24', '#34d399', '#60a5fa', '#f472b6'];
     const n = Math.max(1, spinSegments.length);
     const parts = [];
     for (let i = 0; i < n; i += 1) {
@@ -168,7 +168,7 @@ export default function OverlayPreview({
           type="button"
           className="rounded-lg px-4 py-2.5 text-sm font-semibold"
           style={{
-            backgroundColor: d.exitGateStayBgColor || d.ctaBgColor || '#6c63ff',
+            backgroundColor: d.exitGateStayBgColor || d.ctaBgColor || '#224BBD',
             color: d.exitGateStayTextColor || d.ctaTextColor || '#fff',
             borderRadius: (d.ctaBorderRadius ?? 8) + 'px',
           }}
@@ -260,7 +260,7 @@ export default function OverlayPreview({
               type="button"
               className="shrink-0 rounded px-3 py-1.5 text-xs font-semibold"
               style={{
-                backgroundColor: d.ctaBgColor || '#6c63ff',
+                backgroundColor: d.ctaBgColor || '#224BBD',
                 color: d.ctaTextColor || '#fff',
                 borderRadius: (d.ctaBorderRadius ?? 8) + 'px',
               }}
@@ -337,7 +337,7 @@ export default function OverlayPreview({
               type="button"
               className="mt-4 w-full rounded-lg py-2.5 text-sm font-semibold"
               style={{
-                backgroundColor: d.ctaBgColor || '#6c63ff',
+                backgroundColor: d.ctaBgColor || '#224BBD',
                 color: d.ctaTextColor || '#fff',
                 borderRadius: (d.ctaBorderRadius ?? 8) + 'px',
               }}

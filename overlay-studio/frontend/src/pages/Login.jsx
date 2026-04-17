@@ -26,7 +26,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-sidebar px-4">
       <div className="w-full max-w-md">
         <div className="rounded-lg bg-white p-8 shadow-xl">
-          <h1 className="text-center text-2xl font-bold text-gray-900">Implux.io</h1>
+          <h1 className="text-center text-2xl font-bold text-gray-900">Poptek</h1>
           <p className="mt-1 text-center text-sm text-gray-500">Sign in to your account</p>
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             {error && (

@@ -107,7 +107,7 @@ export default function Merchants() {
           Add Merchant
         </button>
       </div>
-      <p className="mt-1 text-gray-500">Manage Shopify stores connected to Implux</p>
+      <p className="mt-1 text-gray-500">Manage Shopify stores connected to Poptek</p>
 
       {loading ? (
         <div className="mt-6 text-gray-500">Loading...</div>
