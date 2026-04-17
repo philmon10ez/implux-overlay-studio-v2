@@ -12,6 +12,9 @@ import ShopCampaignList from '../components/ShopCampaignList.jsx';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://your-overlay-studio.vercel.app';
 
+/** Bump ?v= when replacing public/poptek-logo.png so Shopify embedded admin picks up the new asset. */
+const POPTEK_LOGO_URL = '/poptek-logo.png?v=dark-tek-2';
+
 /** Lowercase emails allowed to see "Open Campaigns" (Implux dashboard). Empty = hidden for everyone. */
 function parseDashboardEmailAllowlist(raw) {
   if (!raw || typeof raw !== 'string') return new Set();
@@ -347,7 +350,7 @@ export default function AppIndex() {
       <TitleBar title="Poptek by Implux" />
       <div className="poptek-shopify-app">
         <div className="poptek-app-header">
-          <img src="/poptek-logo.png" alt="Poptek" />
+          <img src={POPTEK_LOGO_URL} alt="Poptek" />
         </div>
         <BlockStack gap="500">
           <Tabs tabs={MAIN_TABS} selected={selectedTab} onSelect={handleTabChange} fitted>
