@@ -26,7 +26,7 @@ export default function Sidebar() {
           aria-label="Poptek home"
         >
           <img
-            src="/poptek-logo.png"
+            src="/poptek-logo-designer.png"
             alt="Poptek"
             className="block h-full max-h-full w-full object-contain object-left"
             decoding="async"
