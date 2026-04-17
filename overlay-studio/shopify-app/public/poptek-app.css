@@ -10,9 +10,9 @@
 
 .poptek-shopify-app .poptek-app-header img {
   display: block;
-  max-height: 72px;
+  max-height: 96px;
   width: auto;
-  max-width: min(100%, 400px);
+  max-width: min(100%, 520px);
   object-fit: contain;
   object-position: left center;
   /* Black outline around non-transparent logo pixels (works on light Shopify admin bg) */
