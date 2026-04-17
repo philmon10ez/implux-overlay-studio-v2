@@ -5,12 +5,12 @@ export default {
     extend: {
       fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
       colors: {
-        /** Brand primary — buttons, links, charts */
+        /** Lighter blue — primary CTAs, links, charts */
         accent: '#224BBD',
         primary: '#224BBD',
-        /** Sidebar nav selection, secondary chrome */
+        /** Darker blue — sidebar rail */
         secondary: '#214ABC',
-        sidebar: '#224BBD',
+        sidebar: '#214ABC',
       },
       boxShadow: {
         card: '0 2px 8px rgba(0,0,0,0.08)',
