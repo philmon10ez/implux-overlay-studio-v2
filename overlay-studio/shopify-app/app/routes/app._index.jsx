@@ -357,7 +357,7 @@ export default function AppIndex() {
                 <Card>
                   <BlockStack gap="400">
                     <Text as="h1" variant="headingLg">
-                      Poptek by Implux is active
+                      Poptek is Active
                     </Text>
                     <Text as="p" variant="bodyMd" tone="subdued">
                       Your campaigns are managed from your Poptek dashboard (Implux).

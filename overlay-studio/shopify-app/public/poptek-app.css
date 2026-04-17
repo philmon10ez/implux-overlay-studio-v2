@@ -10,11 +10,15 @@
 
 .poptek-shopify-app .poptek-app-header img {
   display: block;
-  max-height: 44px;
+  max-height: 72px;
   width: auto;
-  max-width: min(100%, 320px);
+  max-width: min(100%, 400px);
   object-fit: contain;
   object-position: left center;
+  /* Black outline around non-transparent logo pixels (works on light Shopify admin bg) */
+  filter: drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000)
+    drop-shadow(0 -1px 0 #000) drop-shadow(1px 1px 0 #000) drop-shadow(-1px -1px 0 #000)
+    drop-shadow(1px -1px 0 #000) drop-shadow(-1px 1px 0 #000);
 }
 
 /* Polaris Tabs — selected / unselected (role-based; stable across Polaris builds) */
