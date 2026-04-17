@@ -19,7 +19,7 @@ export default function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-56 bg-poptek-rail text-white">
-      <div className="flex h-14 min-h-14 shrink-0 border-b border-white/15 px-2">
+      <div className="flex h-14 min-h-14 shrink-0 items-center border-b border-white/15 px-2 py-1.5">
         <Link
           to="/dashboard"
           className="flex h-full min-h-0 w-full min-w-0 items-center justify-start"
@@ -28,7 +28,7 @@ export default function Sidebar() {
           <img
             src="/poptek-logo.png"
             alt="Poptek"
-            className="block h-full w-full max-h-14 object-contain object-left"
+            className="block h-full max-h-full w-full object-contain object-left"
             decoding="async"
           />
         </Link>
