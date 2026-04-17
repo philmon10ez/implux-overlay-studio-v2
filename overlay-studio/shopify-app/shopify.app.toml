@@ -1,7 +1,7 @@
-# Implux — Shopify App
+# Poptek by Implux — Shopify App
 # Set app_url in Railway to your Remix service URL (e.g. https://overlay-studio-shopify.up.railway.app)
 
-name = "overlay-studio"
+name = "Poptek by Implux"
 client_id = "YOUR_CLIENT_ID"
 application_url = "https://YOUR-RAILWAY-REMIX-SERVICE.up.railway.app"
 embedded = true

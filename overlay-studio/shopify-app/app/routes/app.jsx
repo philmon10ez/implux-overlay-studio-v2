@@ -4,7 +4,10 @@ import polarisStyles from '@shopify/polaris/build/esm/styles.css?url';
 import { authenticate } from '../shopify.server.js';
 import prisma from '../db.server.js';
 
-export const links = () => [{ rel: 'stylesheet', href: polarisStyles }];
+export const links = () => [
+  { rel: 'stylesheet', href: polarisStyles },
+  { rel: 'stylesheet', href: '/poptek-app.css' },
+];
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);

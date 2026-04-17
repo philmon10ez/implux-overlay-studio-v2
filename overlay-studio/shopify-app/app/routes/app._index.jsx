@@ -332,8 +332,8 @@ export const loader = async ({ request }) => {
 };
 
 const MAIN_TABS = [
-  { id: 'overlay-requests', content: 'Request overlay designs', panelID: 'overlay-requests-panel' },
-  { id: 'shop-campaigns', content: 'Active campaigns', panelID: 'shop-campaigns-panel' },
+  { id: 'overlay-requests', content: 'Overlay submissions', panelID: 'overlay-requests-panel' },
+  { id: 'shop-campaigns', content: 'Campaign tracker', panelID: 'shop-campaigns-panel' },
 ];
 
 export default function AppIndex() {
@@ -344,19 +344,23 @@ export default function AppIndex() {
 
   return (
     <Page>
-      <TitleBar title="Poptek" />
-      <BlockStack gap="500">
-        <Tabs tabs={MAIN_TABS} selected={selectedTab} onSelect={handleTabChange} fitted>
+      <TitleBar title="Poptek by Implux" />
+      <div className="poptek-shopify-app">
+        <div className="poptek-app-header">
+          <img src="/poptek-logo.png" alt="Poptek" />
+        </div>
+        <BlockStack gap="500">
+          <Tabs tabs={MAIN_TABS} selected={selectedTab} onSelect={handleTabChange} fitted>
           {selectedTab === 0 ? (
             <Layout>
               <Layout.Section>
                 <Card>
                   <BlockStack gap="400">
                     <Text as="h1" variant="headingLg">
-                      Poptek is active
+                      Poptek by Implux is active
                     </Text>
                     <Text as="p" variant="bodyMd" tone="subdued">
-                      Your campaigns are managed from your Poptek dashboard.
+                      Your campaigns are managed from your Poptek dashboard (Implux).
                     </Text>
                     <Text as="p" variant="bodyMd">
                       Active campaigns for this shop: <strong>{activeCampaignCount}</strong>
@@ -391,7 +395,8 @@ export default function AppIndex() {
             </Layout>
           )}
         </Tabs>
-      </BlockStack>
+        </BlockStack>
+      </div>
     </Page>
   );
 }
