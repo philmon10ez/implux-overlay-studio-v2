@@ -18,6 +18,10 @@ redirect_urls = [
 [webhooks]
 api_version = "2024-01"
 
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+uri = "https://portal.implux.io/api/shopify/webhooks/compliance"
+
 # orders/create → backend proxy (conversion tracking)
 [[webhooks.subscriptions]]
 topics = ["orders/create"]

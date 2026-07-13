@@ -1,9 +1,7 @@
 /**
  * Shopify: webhook HMAC verification; push campaign to store (placeholder).
  */
-import crypto from 'crypto';
-
-const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
+import { verifyShopifyWebhookHmac } from './shopifyWebhookHmac.js';
 
 /**
  * Validate Shopify webhook HMAC using raw body.
@@ -11,13 +9,12 @@ const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
  */
 export function verifyWebhook(req) {
   const hmac = req.headers['x-shopify-hmac-sha256'];
-  if (!hmac || !SHOPIFY_API_SECRET) return false;
   const raw =
     req.rawBody != null
       ? (Buffer.isBuffer(req.rawBody) ? req.rawBody : Buffer.from(String(req.rawBody)))
       : Buffer.from(JSON.stringify(req.body ?? {}), 'utf8');
-  const expected = crypto.createHmac('sha256', SHOPIFY_API_SECRET).update(raw).digest('base64');
-  return crypto.timingSafeEqual(Buffer.from(hmac, 'base64'), expected);
+  const result = verifyShopifyWebhookHmac(raw, hmac);
+  return result.ok;
 }
 
 /**

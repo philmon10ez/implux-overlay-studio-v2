@@ -139,3 +139,12 @@ model RakutenCredentials {
   securityToken String
   updatedAt     DateTime @updatedAt
 }
+
+model ShopifyWebhookDelivery {
+  id         String   @id
+  topic      String
+  shopDomain String
+  receivedAt DateTime @default(now())
+
+  @@index([receivedAt])
+}

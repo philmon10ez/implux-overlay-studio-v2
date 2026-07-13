@@ -13,6 +13,7 @@ import analyticsRoutes from './routes/analytics.js';
 import rakutenRoutes from './routes/rakuten.js';
 import proxyRoutes from './routes/proxy.js';
 import shopifySyncRoutes from './routes/shopifySync.js';
+import shopifyComplianceWebhooksRoutes from './routes/shopifyComplianceWebhooks.js';
 import productsRoutes from './routes/products.js';
 import recommendationSetsRoutes from './routes/recommendationSets.js';
 import recommendationTargetingRoutes from './routes/recommendationTargeting.js';
@@ -77,6 +78,19 @@ export function createApp() {
   const app = express();
 
   app.use(cookieParser());
+
+  // Compliance webhooks: raw body must be preserved for HMAC verification (before express.json()).
+  app.use(
+    '/api/shopify/webhooks/compliance',
+    express.raw({
+      type: '*/*',
+      verify: (req, _res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+    shopifyComplianceWebhooksRoutes
+  );
+
   app.use(express.json());
 
   app.use('/api', apiCors);
