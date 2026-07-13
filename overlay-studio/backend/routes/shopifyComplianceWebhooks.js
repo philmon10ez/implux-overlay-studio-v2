@@ -33,10 +33,10 @@ router.post('/', async (req, res) => {
     return res.sendStatus(401);
   }
 
-  let payload;
+  let payload = {};
   try {
     const text = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : String(rawBody ?? '');
-    payload = JSON.parse(text);
+    payload = text.trim() ? JSON.parse(text) : {};
   } catch {
     return res.sendStatus(400);
   }
@@ -45,25 +45,25 @@ router.post('/', async (req, res) => {
   const webhookId = String(req.headers['x-shopify-webhook-id'] || '').trim();
   const shopDomain = normalizeShopDomain(req.headers['x-shopify-shop-domain'], payload?.shop_domain);
 
-  if (!isComplianceTopic(topic)) {
-    console.warn('[shopify-compliance]', JSON.stringify({ topic, shopDomain, webhookId, error: 'unsupported_topic' }));
-    return res.sendStatus(400);
-  }
+  console.log('[shopify-compliance]', JSON.stringify({ topic: topic || '(none)', shopDomain, webhookId }));
 
-  console.log('[shopify-compliance]', JSON.stringify({ topic, shopDomain, webhookId }));
-
-  if (webhookId && (await isDuplicateWebhookDelivery(webhookId))) {
-    return res.sendStatus(200);
-  }
-
-  if (webhookId) {
-    const recorded = await recordWebhookDelivery(webhookId, topic, shopDomain);
-    if (!recorded) {
+  if (topic && isComplianceTopic(topic)) {
+    if (webhookId && (await isDuplicateWebhookDelivery(webhookId))) {
       return res.sendStatus(200);
     }
+
+    if (webhookId) {
+      const recorded = await recordWebhookDelivery(webhookId, topic, shopDomain);
+      if (!recorded) {
+        return res.sendStatus(200);
+      }
+    }
+
+    queueComplianceProcessing(topic, payload);
+  } else if (topic) {
+    console.warn('[shopify-compliance]', JSON.stringify({ topic, shopDomain, webhookId, note: 'non_compliance_topic_acknowledged' }));
   }
 
-  queueComplianceProcessing(topic, payload);
   return res.sendStatus(200);
 });
 

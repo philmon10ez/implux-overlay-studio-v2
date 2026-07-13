@@ -35,14 +35,15 @@ export function verifyShopifyWebhookHmac(rawBody, hmacHeader) {
     return { ok: false, reason: 'malformed' };
   }
 
-  const expected = crypto.createHmac('sha256', secret).update(raw).digest();
+  const expectedB64 = crypto.createHmac('sha256', secret).update(raw).digest('base64');
+  const receivedB64 = hmacHeader.trim();
 
-  if (received.length !== expected.length) {
+  if (receivedB64.length !== expectedB64.length) {
     return { ok: false, reason: 'mismatch' };
   }
 
   try {
-    if (!crypto.timingSafeEqual(received, expected)) {
+    if (!crypto.timingSafeEqual(Buffer.from(receivedB64, 'utf8'), Buffer.from(expectedB64, 'utf8'))) {
       return { ok: false, reason: 'mismatch' };
     }
   } catch {

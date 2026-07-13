@@ -9,7 +9,7 @@ embedded = true
 api_version = "2026-01"
 
   [[webhooks.subscriptions]]
-  uri = "https://portal.implux.io/api/shopify/webhooks/compliance"
+  uri = "https://api.implux.io/api/shopify/webhooks/compliance"
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
 [access_scopes]
