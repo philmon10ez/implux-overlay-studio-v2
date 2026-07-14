@@ -14,6 +14,8 @@
     "recommendations:smoke": "node scripts/recommendation-targeting-smoke.mjs",
     "test": "node scripts/run-tests.mjs",
     "test:integration": "node scripts/run-integration-tests.mjs",
+    "test:shopify-compliance-live": "node scripts/testShopifyComplianceWebhook.js",
+    "test:shopify-compliance-live-invalid": "node scripts/testShopifyComplianceWebhookInvalid.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {

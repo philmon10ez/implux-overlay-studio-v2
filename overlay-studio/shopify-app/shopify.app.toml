@@ -1,35 +1,26 @@
-# Poptek by Implux — Shopify App
-# Set app_url in Railway to your Remix service URL (e.g. https://overlay-studio-shopify.up.railway.app)
+# Poptek by Implux — Shopify App (production / App Store)
+# Deploy with: shopify app deploy --config shopify.app.implux.toml
 
 name = "Poptek by Implux"
-client_id = "YOUR_CLIENT_ID"
-application_url = "https://YOUR-RAILWAY-REMIX-SERVICE.up.railway.app"
+client_id = "786f52ea5cd6c4e9c95a835dfecd2ecb"
+application_url = "https://stunning-friendship-production.up.railway.app"
 embedded = true
+
+[webhooks]
+api_version = "2026-01"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+uri = "https://api.implux.io/api/shopify/webhooks/compliance"
 
 [access_scopes]
 scopes = "read_products,write_script_tags,read_orders,write_themes,read_themes,read_users"
 
 [auth]
 redirect_urls = [
-  "https://YOUR-RAILWAY-REMIX-SERVICE.up.railway.app/auth/callback",
-  "https://YOUR-RAILWAY-REMIX-SERVICE.up.railway.app/auth/shopify/callback"
+  "https://stunning-friendship-production.up.railway.app/auth/callback",
+  "https://stunning-friendship-production.up.railway.app/auth/shopify/callback"
 ]
-
-[webhooks]
-api_version = "2024-01"
-
-[[webhooks.subscriptions]]
-compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
-uri = "https://portal.implux.io/api/shopify/webhooks/compliance"
-
-# orders/create → backend proxy (conversion tracking)
-[[webhooks.subscriptions]]
-topics = ["orders/create"]
-uri = "https://YOUR-RAILWAY-BACKEND.up.railway.app/proxy/conversion"
-
-[[webhooks.subscriptions]]
-topics = ["app/uninstalled"]
-uri = "https://YOUR-RAILWAY-REMIX-SERVICE.up.railway.app/webhooks/app/uninstalled"
 
 [pos]
 embedded = false

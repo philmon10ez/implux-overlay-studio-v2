@@ -3,8 +3,10 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import express from 'express';
 import request from 'supertest';
 import { createApp } from '../app.js';
+import { complianceWebhookHandler } from '../routes/shopifyComplianceWebhooks.js';
 import {
   verifyShopifyWebhookHmac,
   signShopifyWebhookBody,
@@ -41,10 +43,10 @@ function compliancePayload(topic) {
   return base;
 }
 
-function postCompliance(app, rawBody, headers = {}) {
+function postCompliance(app, rawBody, headers = {}, contentType = 'application/json') {
   return request(app)
     .post(ENDPOINT)
-    .set('Content-Type', 'application/json')
+    .set('Content-Type', contentType)
     .set(headers)
     .send(rawBody);
 }
@@ -53,13 +55,17 @@ test('verifyShopifyWebhookHmac unit checks', () => {
   const prev = process.env.SHOPIFY_API_SECRET;
   process.env.SHOPIFY_API_SECRET = TEST_SECRET;
   try {
-    const missing = verifyShopifyWebhookHmac('{}', undefined);
+    const missing = verifyShopifyWebhookHmac(Buffer.from('{}'), undefined);
     assert.equal(missing.ok, false);
     assert.equal(missing.reason, 'missing');
 
-    const malformed = verifyShopifyWebhookHmac('{}', '!!!');
+    const malformed = verifyShopifyWebhookHmac(Buffer.from('{}'), '!!!');
     assert.equal(malformed.ok, false);
     assert.ok(['malformed', 'mismatch'].includes(malformed.reason));
+
+    const invalidBody = verifyShopifyWebhookHmac('{}', signShopifyWebhookBody('{}', TEST_SECRET));
+    assert.equal(invalidBody.ok, false);
+    assert.equal(invalidBody.reason, 'invalid_body');
   } finally {
     process.env.SHOPIFY_API_SECRET = prev;
   }
@@ -102,6 +108,29 @@ test('compliance webhooks HTTP suite', async (t) => {
       assert.equal(res.status, 401);
     });
 
+    await t.test('malformed base64 HMAC returns 401', async () => {
+      const rawBody = JSON.stringify(compliancePayload('shop/redact'));
+      const res = await postCompliance(app, rawBody, {
+        'X-Shopify-Hmac-Sha256': 'not-valid-base64!!!',
+        'X-Shopify-Topic': 'shop/redact',
+      });
+      assert.equal(res.status, 401);
+    });
+
+    await t.test('missing secret returns 401', async () => {
+      const prevSecret = process.env.SHOPIFY_API_SECRET;
+      delete process.env.SHOPIFY_API_SECRET;
+      const noSecretApp = createApp();
+      const rawBody = JSON.stringify(compliancePayload('shop/redact'));
+      const hmac = signShopifyWebhookBody(rawBody, TEST_SECRET);
+      const res = await postCompliance(noSecretApp, rawBody, {
+        'X-Shopify-Hmac-Sha256': hmac,
+        'X-Shopify-Topic': 'shop/redact',
+      });
+      process.env.SHOPIFY_API_SECRET = prevSecret;
+      assert.equal(res.status, 401);
+    });
+
     await t.test('all three compliance topics are accepted', async () => {
       for (const topic of COMPLIANCE_TOPICS) {
         const rawBody = JSON.stringify(compliancePayload(topic));
@@ -140,6 +169,91 @@ test('compliance webhooks HTTP suite', async (t) => {
         'X-Shopify-Shop-Domain': 'raw-body.myshopify.com',
       });
       assert.equal(bad.status, 401);
+    });
+
+    await t.test('minimal synthetic payload with valid HMAC returns 200', async () => {
+      const rawBody = '{"shop_id":12345,"shop_domain":"test.myshopify.com"}';
+      const hmac = signShopifyWebhookBody(rawBody, TEST_SECRET);
+      const res = await postCompliance(app, rawBody, {
+        'X-Shopify-Hmac-Sha256': hmac,
+        'X-Shopify-Topic': 'shop/redact',
+        'X-Shopify-Shop-Domain': 'test.myshopify.com',
+        'X-Shopify-Webhook-Id': `test-minimal-${Date.now()}`,
+      });
+      assert.equal(res.status, 200);
+    });
+
+    await t.test('invalid JSON body with valid HMAC still returns 200', async () => {
+      const rawBody = '{not-json';
+      const hmac = signShopifyWebhookBody(rawBody, TEST_SECRET);
+      const res = await postCompliance(app, rawBody, {
+        'X-Shopify-Hmac-Sha256': hmac,
+        'X-Shopify-Topic': 'shop/redact',
+        'X-Shopify-Shop-Domain': 'test.myshopify.com',
+      });
+      assert.equal(res.status, 200);
+    });
+
+    await t.test('application/json with charset is accepted', async () => {
+      const rawBody = JSON.stringify(compliancePayload('shop/redact'));
+      const hmac = signShopifyWebhookBody(rawBody, TEST_SECRET);
+      const res = await postCompliance(
+        app,
+        rawBody,
+        {
+          'X-Shopify-Hmac-Sha256': hmac,
+          'X-Shopify-Topic': 'shop/redact',
+          'X-Shopify-Shop-Domain': 'example.myshopify.com',
+          'X-Shopify-Webhook-Id': `test-charset-${Date.now()}`,
+        },
+        'application/json; charset=utf-8'
+      );
+      assert.equal(res.status, 200);
+    });
+
+    await t.test('route receives a Buffer before JSON middleware', async () => {
+      let sawBuffer = false;
+      const probeApp = express();
+      probeApp.post(
+        ENDPOINT,
+        express.raw({ type: 'application/json' }),
+        (req, _res, next) => {
+          sawBuffer = Buffer.isBuffer(req.body);
+          next();
+        },
+        complianceWebhookHandler
+      );
+      probeApp.use(express.json());
+
+      const rawBody = JSON.stringify(compliancePayload('shop/redact'));
+      const hmac = signShopifyWebhookBody(rawBody, TEST_SECRET);
+      const res = await request(probeApp)
+        .post(ENDPOINT)
+        .set('Content-Type', 'application/json')
+        .set({
+          'X-Shopify-Hmac-Sha256': hmac,
+          'X-Shopify-Topic': 'shop/redact',
+        })
+        .send(rawBody);
+
+      assert.equal(sawBuffer, true);
+      assert.equal(res.status, 200);
+    });
+
+    await t.test('database failure after verification does not change the response from 200', async () => {
+      const prevDb = process.env.DATABASE_URL;
+      process.env.DATABASE_URL = 'postgresql://invalid:invalid@127.0.0.1:1/nope';
+      const isolatedApp = createApp();
+      const rawBody = JSON.stringify(compliancePayload('shop/redact'));
+      const hmac = signShopifyWebhookBody(rawBody, TEST_SECRET);
+      const res = await postCompliance(isolatedApp, rawBody, {
+        'X-Shopify-Hmac-Sha256': hmac,
+        'X-Shopify-Topic': 'shop/redact',
+        'X-Shopify-Shop-Domain': 'example.myshopify.com',
+        'X-Shopify-Webhook-Id': `test-db-fail-${Date.now()}`,
+      });
+      process.env.DATABASE_URL = prevDb;
+      assert.equal(res.status, 200);
     });
   } finally {
     process.env.SHOPIFY_API_SECRET = prev;

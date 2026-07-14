@@ -8,9 +8,9 @@ function getShopifyApiSecret() {
 }
 
 /**
- * @param {Buffer|string|null|undefined} rawBody
+ * @param {Buffer|null|undefined} rawBody
  * @param {string|undefined|null} hmacHeader
- * @returns {{ ok: true } | { ok: false, reason: 'missing' | 'malformed' | 'mismatch' | 'misconfigured' }}
+ * @returns {{ ok: true } | { ok: false, reason: 'missing' | 'malformed' | 'mismatch' | 'misconfigured' | 'invalid_body' }}
  */
 export function verifyShopifyWebhookHmac(rawBody, hmacHeader) {
   const secret = getShopifyApiSecret();
@@ -20,10 +20,9 @@ export function verifyShopifyWebhookHmac(rawBody, hmacHeader) {
   if (hmacHeader == null || typeof hmacHeader !== 'string' || !hmacHeader.trim()) {
     return { ok: false, reason: 'missing' };
   }
-
-  const raw = Buffer.isBuffer(rawBody)
-    ? rawBody
-    : Buffer.from(rawBody == null ? '' : String(rawBody), 'utf8');
+  if (!Buffer.isBuffer(rawBody)) {
+    return { ok: false, reason: 'invalid_body' };
+  }
 
   let received;
   try {
@@ -35,15 +34,14 @@ export function verifyShopifyWebhookHmac(rawBody, hmacHeader) {
     return { ok: false, reason: 'malformed' };
   }
 
-  const expectedB64 = crypto.createHmac('sha256', secret).update(raw).digest('base64');
-  const receivedB64 = hmacHeader.trim();
+  const expected = crypto.createHmac('sha256', secret).update(rawBody).digest();
 
-  if (receivedB64.length !== expectedB64.length) {
+  if (received.length !== expected.length) {
     return { ok: false, reason: 'mismatch' };
   }
 
   try {
-    if (!crypto.timingSafeEqual(Buffer.from(receivedB64, 'utf8'), Buffer.from(expectedB64, 'utf8'))) {
+    if (!crypto.timingSafeEqual(received, expected)) {
       return { ok: false, reason: 'mismatch' };
     }
   } catch {

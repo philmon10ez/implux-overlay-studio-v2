@@ -2,7 +2,6 @@
  * POST /api/shopify/webhooks/compliance
  * Shopify mandatory compliance webhooks (GDPR).
  */
-import express from 'express';
 import { verifyShopifyWebhookHmac } from '../services/shopifyWebhookHmac.js';
 import {
   isComplianceTopic,
@@ -11,8 +10,6 @@ import {
   queueComplianceProcessing,
 } from '../services/shopifyComplianceService.js';
 
-const router = express.Router();
-
 function normalizeShopDomain(headerValue, bodyShopDomain) {
   const fromHeader = String(headerValue || '').trim();
   const fromBody = String(bodyShopDomain || '').trim();
@@ -20,51 +17,122 @@ function normalizeShopDomain(headerValue, bodyShopDomain) {
   return value.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
 }
 
-router.post('/', async (req, res) => {
-  const rawBody = req.rawBody ?? req.body;
-  const hmacHeader = req.headers['x-shopify-hmac-sha256'];
-  const verification = verifyShopifyWebhookHmac(rawBody, hmacHeader);
+function safeComplianceRequestLog(fields) {
+  console.log('[shopify-compliance]', JSON.stringify(fields));
+}
 
-  if (!verification.ok) {
-    if (verification.reason === 'misconfigured') {
-      console.error('[shopify-compliance] SHOPIFY_API_SECRET is not configured');
-      return res.sendStatus(503);
-    }
-    return res.sendStatus(401);
-  }
-
-  let payload = {};
+function parsePayload(rawBody) {
   try {
-    const text = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : String(rawBody ?? '');
-    payload = text.trim() ? JSON.parse(text) : {};
+    const text = rawBody.toString('utf8').trim();
+    return text ? JSON.parse(text) : {};
   } catch {
-    return res.sendStatus(400);
+    return {};
+  }
+}
+
+async function deferComplianceWork(topic, payload, webhookId, shopDomain) {
+  if (!topic || !isComplianceTopic(topic)) {
+    if (topic) {
+      safeComplianceRequestLog({
+        event: 'deferred_non_compliance_topic',
+        topic,
+        shopDomain,
+        webhookId,
+      });
+    }
+    return;
   }
 
-  const topic = String(req.headers['x-shopify-topic'] || '').trim();
-  const webhookId = String(req.headers['x-shopify-webhook-id'] || '').trim();
-  const shopDomain = normalizeShopDomain(req.headers['x-shopify-shop-domain'], payload?.shop_domain);
-
-  console.log('[shopify-compliance]', JSON.stringify({ topic: topic || '(none)', shopDomain, webhookId }));
-
-  if (topic && isComplianceTopic(topic)) {
+  try {
     if (webhookId && (await isDuplicateWebhookDelivery(webhookId))) {
-      return res.sendStatus(200);
+      safeComplianceRequestLog({
+        event: 'duplicate_delivery_skipped',
+        topic,
+        shopDomain,
+        webhookId,
+      });
+      return;
     }
 
     if (webhookId) {
       const recorded = await recordWebhookDelivery(webhookId, topic, shopDomain);
       if (!recorded) {
-        return res.sendStatus(200);
+        safeComplianceRequestLog({
+          event: 'duplicate_delivery_race',
+          topic,
+          shopDomain,
+          webhookId,
+        });
+        return;
       }
     }
 
     queueComplianceProcessing(topic, payload);
-  } else if (topic) {
-    console.warn('[shopify-compliance]', JSON.stringify({ topic, shopDomain, webhookId, note: 'non_compliance_topic_acknowledged' }));
+  } catch (err) {
+    console.error('[shopify-compliance] deferred work failed', {
+      topic,
+      shopDomain,
+      webhookId,
+      error: err?.message ?? 'unknown',
+    });
+  }
+}
+
+/**
+ * Express handler — must be mounted with express.raw({ type: 'application/json' })
+ * before express.json() so req.body remains the exact raw bytes.
+ */
+export async function complianceWebhookHandler(req, res) {
+  const routePath = req.originalUrl || req.path;
+  const contentType = req.get('content-type') || '';
+  const bodyIsBuffer = Buffer.isBuffer(req.body);
+  const rawBodyLength = bodyIsBuffer ? req.body.length : 0;
+  const hmacHeader = req.get('X-Shopify-Hmac-Sha256');
+  const topic = String(req.get('X-Shopify-Topic') || '').trim();
+  const webhookId = String(req.get('X-Shopify-Webhook-Id') || '').trim();
+  const headerShopDomain = String(req.get('X-Shopify-Shop-Domain') || '').trim();
+
+  safeComplianceRequestLog({
+    event: 'request_received',
+    routePath,
+    contentType,
+    bodyIsBuffer,
+    rawBodyLength,
+    hmacHeaderPresent: Boolean(hmacHeader),
+    topic: topic || '(none)',
+    shopDomain: headerShopDomain || '(none)',
+    webhookId: webhookId || '(none)',
+  });
+
+  const verification = verifyShopifyWebhookHmac(req.body, hmacHeader);
+  if (!verification.ok) {
+    safeComplianceRequestLog({
+      event: 'hmac_rejected',
+      routePath,
+      hmacResult: verification.reason,
+      status: 401,
+    });
+    return res.sendStatus(401);
   }
 
-  return res.sendStatus(200);
-});
+  const payload = parsePayload(req.body);
+  const shopDomain = normalizeShopDomain(headerShopDomain, payload?.shop_domain);
 
-export default router;
+  safeComplianceRequestLog({
+    event: 'hmac_valid',
+    routePath,
+    hmacResult: 'valid',
+    topic: topic || '(none)',
+    shopDomain: shopDomain || '(none)',
+    webhookId: webhookId || '(none)',
+    status: 200,
+  });
+
+  res.sendStatus(200);
+
+  setImmediate(() => {
+    deferComplianceWork(topic, payload, webhookId, shopDomain);
+  });
+}
+
+export default complianceWebhookHandler;
