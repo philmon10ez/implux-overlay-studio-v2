@@ -1,7 +1,7 @@
 {
   "build": { "builder": "NIXPACKS" },
   "deploy": {
-    "startCommand": "npm run start",
+    "startCommand": "node node_modules/prisma/build/index.js generate && HOST=0.0.0.0 node node_modules/@remix-run/serve/dist/cli.js ./build/server/index.js",
     "restartPolicyType": "ON_FAILURE"
   }
 }

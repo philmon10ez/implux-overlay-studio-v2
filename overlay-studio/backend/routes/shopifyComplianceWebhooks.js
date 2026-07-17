@@ -21,6 +21,36 @@ function safeComplianceRequestLog(fields) {
   console.log('[shopify-compliance]', JSON.stringify(fields));
 }
 
+function complianceDebugEnabled() {
+  const v = String(process.env.COMPLIANCE_WEBHOOK_DEBUG || '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes';
+}
+
+/** Temporary diagnostics — enable with COMPLIANCE_WEBHOOK_DEBUG=true on Railway. Never logs secrets. */
+function logComplianceDebug(req, res, extra = {}) {
+  if (!complianceDebugEnabled()) return;
+  const bodyPreview = Buffer.isBuffer(req.body)
+    ? req.body.toString('utf8').slice(0, 500)
+    : String(req.body ?? '').slice(0, 500);
+  safeComplianceRequestLog({
+    event: 'debug_trace',
+    method: req.method,
+    url: req.originalUrl || req.url,
+    headers: {
+      'content-type': req.get('content-type') || '',
+      'x-shopify-topic': req.get('X-Shopify-Topic') || '',
+      'x-shopify-shop-domain': req.get('X-Shopify-Shop-Domain') || '',
+      'x-shopify-webhook-id': req.get('X-Shopify-Webhook-Id') || '',
+      'x-shopify-hmac-sha256-present': Boolean(req.get('X-Shopify-Hmac-Sha256')),
+      'user-agent': req.get('user-agent') || '',
+    },
+    bodyPreview,
+    bodyIsBuffer: Buffer.isBuffer(req.body),
+    bodyLength: Buffer.isBuffer(req.body) ? req.body.length : 0,
+    ...extra,
+  });
+}
+
 function parsePayload(rawBody) {
   try {
     const text = rawBody.toString('utf8').trim();
@@ -92,6 +122,8 @@ export async function complianceWebhookHandler(req, res) {
   const webhookId = String(req.get('X-Shopify-Webhook-Id') || '').trim();
   const headerShopDomain = String(req.get('X-Shopify-Shop-Domain') || '').trim();
 
+  logComplianceDebug(req, res, { phase: 'request_start' });
+
   safeComplianceRequestLog({
     event: 'request_received',
     routePath,
@@ -112,6 +144,7 @@ export async function complianceWebhookHandler(req, res) {
       hmacResult: verification.reason,
       status: 401,
     });
+    logComplianceDebug(req, res, { phase: 'response', httpStatus: 401, hmacResult: verification.reason });
     return res.sendStatus(401);
   }
 
@@ -128,8 +161,45 @@ export async function complianceWebhookHandler(req, res) {
     status: 200,
   });
 
+  logComplianceDebug(req, res, { phase: 'response', httpStatus: 200, hmacResult: 'valid' });
   res.sendStatus(200);
 
+  setImmediate(() => {
+    deferComplianceWork(topic, payload, webhookId, shopDomain);
+  });
+}
+
+/**
+ * Trusted forward from shopify-app after Remix HMAC verification.
+ * POST /api/shopify/webhooks/compliance/internal
+ */
+export async function complianceInternalForwardHandler(req, res) {
+  const expected = process.env.MERCHANT_SYNC_SECRET;
+  if (!expected) {
+    return res.sendStatus(503);
+  }
+  const sent = req.get('x-implux-compliance-forward-secret') || '';
+  if (sent !== expected) {
+    return res.sendStatus(401);
+  }
+
+  const topic = String(req.body?.topic || '').trim();
+  const webhookId = String(req.body?.webhookId || '').trim();
+  const shopDomain = normalizeShopDomain(req.body?.shopDomain, req.body?.payload?.shop_domain);
+  const payload = req.body?.payload && typeof req.body.payload === 'object' ? req.body.payload : {};
+
+  if (!isComplianceTopic(topic)) {
+    return res.sendStatus(400);
+  }
+
+  safeComplianceRequestLog({
+    event: 'internal_forward_received',
+    topic,
+    shopDomain: shopDomain || '(none)',
+    webhookId: webhookId || '(none)',
+  });
+
+  res.sendStatus(200);
   setImmediate(() => {
     deferComplianceWork(topic, payload, webhookId, shopDomain);
   });

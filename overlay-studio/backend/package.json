@@ -16,6 +16,7 @@
     "test:integration": "node scripts/run-integration-tests.mjs",
     "test:shopify-compliance-live": "node scripts/testShopifyComplianceWebhook.js",
     "test:shopify-compliance-live-invalid": "node scripts/testShopifyComplianceWebhookInvalid.js",
+    "verify-shopify-compliance": "node scripts/verifyShopifyCompliance.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {

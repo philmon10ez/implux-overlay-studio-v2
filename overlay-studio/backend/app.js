@@ -13,7 +13,7 @@ import analyticsRoutes from './routes/analytics.js';
 import rakutenRoutes from './routes/rakuten.js';
 import proxyRoutes from './routes/proxy.js';
 import shopifySyncRoutes from './routes/shopifySync.js';
-import { complianceWebhookHandler } from './routes/shopifyComplianceWebhooks.js';
+import { complianceWebhookHandler, complianceInternalForwardHandler } from './routes/shopifyComplianceWebhooks.js';
 import productsRoutes from './routes/products.js';
 import recommendationSetsRoutes from './routes/recommendationSets.js';
 import recommendationTargetingRoutes from './routes/recommendationTargeting.js';
@@ -87,6 +87,8 @@ export function createApp() {
   );
 
   app.use(express.json());
+
+  app.post('/api/shopify/webhooks/compliance/internal', complianceInternalForwardHandler);
 
   app.use('/api', apiCors);
 

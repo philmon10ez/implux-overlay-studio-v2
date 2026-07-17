@@ -11,10 +11,10 @@ api_version = "2026-01"
 
 [[webhooks.subscriptions]]
 compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
-uri = "https://api.implux.io/api/shopify/webhooks/compliance"
+uri = "/webhooks/compliance"
 
 [access_scopes]
-scopes = "read_products,write_script_tags,read_orders,write_themes,read_themes,read_users"
+scopes = "read_products,write_script_tags,read_orders,write_themes,read_themes"
 
 [auth]
 redirect_urls = [
@@ -26,4 +26,4 @@ redirect_urls = [
 embedded = false
 
 [build]
-include_config_on_deploy = true
+automatically_update_urls_on_dev = false

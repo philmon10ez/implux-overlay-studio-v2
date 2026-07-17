@@ -1,3 +1,12 @@
-# Railway / Nixpacks: use Node 20+ (Web Crypto global expected by Shopify API)
+# Railway / Nixpacks: Node 20+ (Web Crypto global expected by Shopify API)
 [variables]
 NODE_VERSION = "20"
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "node node_modules/prisma/build/index.js generate && HOST=0.0.0.0 node node_modules/@remix-run/serve/dist/cli.js ./build/server/index.js"
