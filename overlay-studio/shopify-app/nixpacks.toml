@@ -1,6 +1,9 @@
-# Railway / Nixpacks: Node 20+ (Web Crypto global expected by Shopify API)
+# Railway / Nixpacks: force Node 20 (Web Crypto for Shopify API). Do not commit node_modules.
 [variables]
 NODE_VERSION = "20"
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "npm"]
 
 [phases.install]
 cmds = ["npm install"]

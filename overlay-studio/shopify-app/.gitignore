@@ -1,9 +1,10 @@
 # Build output (Remix); deploy builds on Railway or via CI
 /build
 
-# Local Prisma / tooling cache
-node_modules/.cache/
+# Dependencies — install on Railway during build (do not commit)
+node_modules/
 
+# Local Prisma / tooling cache
 # Env (keep .env.example tracked)
 .env
 !.env.example
