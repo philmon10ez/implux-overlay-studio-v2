@@ -8,7 +8,7 @@
 import { randomUUID } from 'crypto';
 
 const url = process.env.COMPLIANCE_WEBHOOK_URL
-  || 'https://api.implux.io/api/shopify/webhooks/compliance';
+  || 'https://api.implux.io/webhooks/compliance';
 
 const body = '{"shop_id":12345,"shop_domain":"test.myshopify.com"}';
 

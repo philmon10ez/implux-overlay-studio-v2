@@ -80,11 +80,13 @@ export function createApp() {
   app.use(cookieParser());
 
   // Compliance webhooks: raw body must be preserved for HMAC verification (before express.json()).
-  app.post(
-    '/api/shopify/webhooks/compliance',
-    express.raw({ type: 'application/json' }),
-    complianceWebhookHandler
-  );
+  const complianceRawJson = express.raw({ type: 'application/json' });
+  app
+    .route('/webhooks/compliance')
+    .post(complianceRawJson, complianceWebhookHandler)
+    .all((_req, res) => {
+      res.sendStatus(405);
+    });
 
   app.use(express.json());
 

@@ -13,7 +13,7 @@ import {
 } from '../services/shopifyWebhookHmac.js';
 
 const TEST_SECRET = 'test-shopify-api-secret-for-hmac';
-const ENDPOINT = '/api/shopify/webhooks/compliance';
+const ENDPOINT = '/webhooks/compliance';
 
 const COMPLIANCE_TOPICS = [
   'customers/data_request',
@@ -77,6 +77,10 @@ test('compliance webhooks HTTP suite', async (t) => {
   const app = createApp();
 
   try {
+    await t.test('production route path is exactly /webhooks/compliance', () => {
+      assert.equal(ENDPOINT, '/webhooks/compliance');
+    });
+
     await t.test('valid HMAC returns 200', async () => {
       const rawBody = JSON.stringify(compliancePayload('shop/redact'));
       const hmac = signShopifyWebhookBody(rawBody, TEST_SECRET);
@@ -102,6 +106,20 @@ test('compliance webhooks HTTP suite', async (t) => {
     await t.test('missing HMAC returns 401', async () => {
       const rawBody = JSON.stringify(compliancePayload('shop/redact'));
       const res = await postCompliance(app, rawBody, {
+        'X-Shopify-Topic': 'shop/redact',
+        'X-Shopify-Shop-Domain': 'example.myshopify.com',
+      });
+      assert.equal(res.status, 401);
+    });
+
+    await t.test('body modified after HMAC was generated returns 401', async () => {
+      const originalBody = JSON.stringify(compliancePayload('shop/redact'));
+      const hmac = signShopifyWebhookBody(originalBody, TEST_SECRET);
+      const tamperedBody = `${originalBody.slice(0, -1)}X`;
+      assert.notEqual(originalBody, tamperedBody);
+
+      const res = await postCompliance(app, tamperedBody, {
+        'X-Shopify-Hmac-Sha256': hmac,
         'X-Shopify-Topic': 'shop/redact',
         'X-Shopify-Shop-Domain': 'example.myshopify.com',
       });
@@ -171,19 +189,7 @@ test('compliance webhooks HTTP suite', async (t) => {
       assert.equal(bad.status, 401);
     });
 
-    await t.test('minimal synthetic payload with valid HMAC returns 200', async () => {
-      const rawBody = '{"shop_id":12345,"shop_domain":"test.myshopify.com"}';
-      const hmac = signShopifyWebhookBody(rawBody, TEST_SECRET);
-      const res = await postCompliance(app, rawBody, {
-        'X-Shopify-Hmac-Sha256': hmac,
-        'X-Shopify-Topic': 'shop/redact',
-        'X-Shopify-Shop-Domain': 'test.myshopify.com',
-        'X-Shopify-Webhook-Id': `test-minimal-${Date.now()}`,
-      });
-      assert.equal(res.status, 200);
-    });
-
-    await t.test('invalid JSON body with valid HMAC still returns 200', async () => {
+    await t.test('invalid JSON body with valid HMAC returns 400', async () => {
       const rawBody = '{not-json';
       const hmac = signShopifyWebhookBody(rawBody, TEST_SECRET);
       const res = await postCompliance(app, rawBody, {
@@ -191,7 +197,7 @@ test('compliance webhooks HTTP suite', async (t) => {
         'X-Shopify-Topic': 'shop/redact',
         'X-Shopify-Shop-Domain': 'test.myshopify.com',
       });
-      assert.equal(res.status, 200);
+      assert.equal(res.status, 400);
     });
 
     await t.test('application/json with charset is accepted', async () => {
@@ -211,18 +217,62 @@ test('compliance webhooks HTTP suite', async (t) => {
       assert.equal(res.status, 200);
     });
 
+    await t.test('unsupported HTTP methods return 405', async () => {
+      const getRes = await request(app).get(ENDPOINT);
+      assert.equal(getRes.status, 405);
+      const putRes = await request(app).put(ENDPOINT).send('{}');
+      assert.equal(putRes.status, 405);
+    });
+
+    await t.test('route does not redirect', async () => {
+      const rawBody = JSON.stringify(compliancePayload('shop/redact'));
+      const hmac = signShopifyWebhookBody(rawBody, TEST_SECRET);
+      const res = await postCompliance(app, rawBody, {
+        'X-Shopify-Hmac-Sha256': hmac,
+        'X-Shopify-Topic': 'shop/redact',
+      });
+      assert.ok(res.status < 300 || res.status >= 400, `unexpected redirect status ${res.status}`);
+      assert.equal(res.status, 200);
+    });
+
+    await t.test('route is not blocked by admin auth middleware', async () => {
+      const rawBody = JSON.stringify(compliancePayload('shop/redact'));
+      const hmac = signShopifyWebhookBody(rawBody, TEST_SECRET);
+      const res = await postCompliance(app, rawBody, {
+        'X-Shopify-Hmac-Sha256': hmac,
+        'X-Shopify-Topic': 'shop/redact',
+        Authorization: 'Bearer invalid-admin-token',
+        Cookie: 'token=invalid-session',
+      });
+      assert.equal(res.status, 200);
+    });
+
+    await t.test('legacy /api/shopify/webhooks/compliance path is not registered', async () => {
+      const rawBody = JSON.stringify(compliancePayload('shop/redact'));
+      const hmac = signShopifyWebhookBody(rawBody, TEST_SECRET);
+      const res = await request(app)
+        .post('/api/shopify/webhooks/compliance')
+        .set('Content-Type', 'application/json')
+        .set({
+          'X-Shopify-Hmac-Sha256': hmac,
+          'X-Shopify-Topic': 'shop/redact',
+        })
+        .send(rawBody);
+      assert.equal(res.status, 404);
+    });
+
     await t.test('route receives a Buffer before JSON middleware', async () => {
       let sawBuffer = false;
       const probeApp = express();
-      probeApp.post(
-        ENDPOINT,
-        express.raw({ type: 'application/json' }),
-        (req, _res, next) => {
+      probeApp
+        .route('/webhooks/compliance')
+        .post(express.raw({ type: 'application/json' }), (req, _res, next) => {
           sawBuffer = Buffer.isBuffer(req.body);
           next();
-        },
-        complianceWebhookHandler
-      );
+        }, complianceWebhookHandler)
+        .all((_req, res) => {
+          res.sendStatus(405);
+        });
       probeApp.use(express.json());
 
       const rawBody = JSON.stringify(compliancePayload('shop/redact'));

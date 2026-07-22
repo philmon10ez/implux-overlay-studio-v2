@@ -1,22 +1,24 @@
-# Poptek by Implux — ACTIVE Shopify CLI config (linked via `shopify app config link`)
-# This file is what `shopify app deploy` publishes. Keep in sync with shopify.app.toml.
-# Learn more: https://shopify.dev/docs/apps/tools/cli/configuration
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "786f52ea5cd6c4e9c95a835dfecd2ecb"
 name = "Poptek by Implux"
 application_url = "https://stunning-friendship-production.up.railway.app"
 embedded = true
 
+[build]
+automatically_update_urls_on_dev = false
+
 [webhooks]
 api_version = "2026-01"
 
-[[webhooks.subscriptions]]
-compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
-uri = "/webhooks/compliance"
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/compliance"
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
 [access_scopes]
-scopes = "read_products,write_script_tags,read_orders,write_themes,read_themes"
-optional_scopes = []
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_orders,read_products,read_themes,write_script_tags,write_themes"
+optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
@@ -27,6 +29,3 @@ redirect_urls = [
 
 [pos]
 embedded = false
-
-[build]
-automatically_update_urls_on_dev = false

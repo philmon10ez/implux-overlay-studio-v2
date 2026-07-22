@@ -27,7 +27,7 @@ const REQUIRED_TOPICS = [
 ];
 
 const WEBHOOK_URL = process.env.COMPLIANCE_WEBHOOK_URL
-  || 'https://api.implux.io/api/shopify/webhooks/compliance';
+  || 'https://api.implux.io/webhooks/compliance';
 
 function fail(message) {
   console.error(`FAIL — ${message}`);
@@ -82,9 +82,21 @@ function verifyTomlComplianceTopics(content, tomlPath) {
   }
   const tomlUri = uriMatch[1];
   console.log(`TOML webhook uri: ${tomlUri}`);
-  if (tomlUri !== WEBHOOK_URL) {
+  if (tomlUri !== '/webhooks/compliance') {
+    fail(`expected TOML uri "/webhooks/compliance", got "${tomlUri}"`);
+  }
+  pass('TOML webhook uri is /webhooks/compliance');
+
+  const appUrlMatch = content.match(/application_url\s*=\s*"([^"]+)"/);
+  const appUrl = appUrlMatch?.[1]?.replace(/\/$/, '') || '';
+  const expectedShopifyUrl = appUrl ? `${appUrl}${tomlUri}` : null;
+  if (expectedShopifyUrl) {
+    console.log(`Shopify-registered webhook URL: ${expectedShopifyUrl}`);
+  }
+  if (expectedShopifyUrl && expectedShopifyUrl !== WEBHOOK_URL) {
     console.warn(
-      `WARN — COMPLIANCE_WEBHOOK_URL (${WEBHOOK_URL}) differs from TOML uri (${tomlUri})`
+      `WARN — COMPLIANCE_WEBHOOK_URL (${WEBHOOK_URL}) targets the backend directly; `
+      + `Shopify sends checks to ${expectedShopifyUrl} (Remix proxy → backend).`
     );
   }
 }

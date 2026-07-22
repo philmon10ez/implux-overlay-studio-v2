@@ -84,6 +84,7 @@ async function processComplianceWebhook(topic, payload) {
 
   switch (topic) {
     case 'customers/data_request':
+      // TODO: Connect customer data export workflow (email or secure download to merchant).
       safeComplianceLog({
         action: 'customers_data_request_acknowledged',
         shopDomain,

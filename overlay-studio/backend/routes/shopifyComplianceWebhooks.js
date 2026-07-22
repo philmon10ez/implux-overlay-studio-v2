@@ -1,5 +1,5 @@
 /**
- * POST /api/shopify/webhooks/compliance
+ * POST /webhooks/compliance
  * Shopify mandatory compliance webhooks (GDPR).
  */
 import { verifyShopifyWebhookHmac } from '../services/shopifyWebhookHmac.js';
@@ -52,11 +52,12 @@ function logComplianceDebug(req, res, extra = {}) {
 }
 
 function parsePayload(rawBody) {
+  const text = rawBody.toString('utf8').trim();
+  if (!text) return { ok: true, payload: {} };
   try {
-    const text = rawBody.toString('utf8').trim();
-    return text ? JSON.parse(text) : {};
+    return { ok: true, payload: JSON.parse(text) };
   } catch {
-    return {};
+    return { ok: false, payload: null };
   }
 }
 
@@ -113,6 +114,10 @@ async function deferComplianceWork(topic, payload, webhookId, shopDomain) {
  * before express.json() so req.body remains the exact raw bytes.
  */
 export async function complianceWebhookHandler(req, res) {
+  if (req.method !== 'POST') {
+    return res.sendStatus(405);
+  }
+
   const routePath = req.originalUrl || req.path;
   const contentType = req.get('content-type') || '';
   const bodyIsBuffer = Buffer.isBuffer(req.body);
@@ -148,13 +153,23 @@ export async function complianceWebhookHandler(req, res) {
     return res.sendStatus(401);
   }
 
-  const payload = parsePayload(req.body);
+  const parsed = parsePayload(req.body);
+  if (!parsed.ok) {
+    safeComplianceRequestLog({
+      event: 'invalid_json',
+      routePath,
+      topic: topic || '(none)',
+      status: 400,
+    });
+    return res.sendStatus(400);
+  }
+
+  const payload = parsed.payload;
   const shopDomain = normalizeShopDomain(headerShopDomain, payload?.shop_domain);
 
   safeComplianceRequestLog({
-    event: 'hmac_valid',
+    event: 'webhook_accepted',
     routePath,
-    hmacResult: 'valid',
     topic: topic || '(none)',
     shopDomain: shopDomain || '(none)',
     webhookId: webhookId || '(none)',

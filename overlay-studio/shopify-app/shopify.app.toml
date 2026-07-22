@@ -10,7 +10,11 @@ embedded = true
 api_version = "2026-01"
 
 [[webhooks.subscriptions]]
-compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+compliance_topics = [
+  "customers/data_request",
+  "customers/redact",
+  "shop/redact"
+]
 uri = "/webhooks/compliance"
 
 [access_scopes]

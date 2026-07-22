@@ -11,7 +11,7 @@ import { randomUUID } from 'crypto';
 
 const secret = process.env.SHOPIFY_API_SECRET;
 const url = process.env.COMPLIANCE_WEBHOOK_URL
-  || 'https://api.implux.io/api/shopify/webhooks/compliance';
+  || 'https://api.implux.io/webhooks/compliance';
 
 if (!secret) {
   console.error('SHOPIFY_API_SECRET is not set.');
