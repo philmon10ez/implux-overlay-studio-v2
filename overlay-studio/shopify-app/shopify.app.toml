@@ -1,8 +1,9 @@
-# Poptek by Implux — Shopify App (production / App Store)
-# Deploy with: shopify app deploy --config shopify.app.implux.toml
+# Poptek by Implux — PUBLIC app (App Store listing)
+# Custom app client_id (do not use): 786f52ea5cd6c4e9c95a835dfecd2ecb
+# Deploy with: shopify app deploy --config shopify.app.implux.toml --force
 
 name = "Poptek by Implux"
-client_id = "786f52ea5cd6c4e9c95a835dfecd2ecb"
+client_id = "bfcae2d7ecd83eb4fc96749fb543380c"
 application_url = "https://stunning-friendship-production.up.railway.app"
 embedded = true
 
@@ -10,15 +11,13 @@ embedded = true
 api_version = "2026-01"
 
 [[webhooks.subscriptions]]
-compliance_topics = [
-  "customers/data_request",
-  "customers/redact",
-  "shop/redact"
-]
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
 uri = "/webhooks/compliance"
 
 [access_scopes]
 scopes = "read_products,write_script_tags,read_orders,write_themes,read_themes"
+optional_scopes = []
+use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [
