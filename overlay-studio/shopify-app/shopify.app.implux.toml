@@ -1,5 +1,5 @@
-# Poptek by Implux — PUBLIC app (App Store) — active CLI config
-# Linked via: shopify app config link --client-id bfcae2d7ecd83eb4fc96749fb543380c
+# Poptek by Implux — PUBLIC app (App Store)
+# application_url MUST match the Remix Railway service (stunning-friendship), NOT portal.implux.io
 # Deploy with: shopify app deploy --config shopify.app.implux.toml --force
 
 client_id = "bfcae2d7ecd83eb4fc96749fb543380c"
