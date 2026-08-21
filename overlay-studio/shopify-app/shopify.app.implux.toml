@@ -1,6 +1,5 @@
-# Poptek by Implux — PUBLIC app (App Store)
-# application_url MUST match the Remix Railway service (stunning-friendship), NOT portal.implux.io
-# Deploy with: shopify app deploy --config shopify.app.implux.toml --force
+# DEPRECATED — renamed to shopify.app.production.toml
+# Use shopify.app.production.toml (production) or shopify.app.staging.toml (staging).
 
 client_id = "bfcae2d7ecd83eb4fc96749fb543380c"
 name = "Poptek by Implux"

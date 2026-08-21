@@ -18,6 +18,7 @@ import productsRoutes from './routes/products.js';
 import recommendationSetsRoutes from './routes/recommendationSets.js';
 import recommendationTargetingRoutes from './routes/recommendationTargeting.js';
 import conversionIntelligenceRoutes from './routes/conversionIntelligence.js';
+import { resolveAppEnv, resolveAdminCorsOrigins } from '../shared/appEnv.js';
 
 /** Admin dashboard origins (cookie auth + CORS). Comma-separated in FRONTEND_URL. */
 function normalizeOrigin(o) {
@@ -25,28 +26,24 @@ function normalizeOrigin(o) {
   return o.trim().replace(/\/$/, '');
 }
 
-const prodLike = process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT;
-const defaultAdminOrigin = prodLike ? 'https://admin.implux.io' : 'http://localhost:5173';
-const IMPLUX_ADMIN = 'https://admin.implux.io';
-const fromEnv = (process.env.FRONTEND_URL || defaultAdminOrigin)
-  .split(',')
-  .map((s) => normalizeOrigin(s))
-  .filter(Boolean);
-const adminCorsOrigins = [...new Set([IMPLUX_ADMIN, ...fromEnv])];
+const appEnv = resolveAppEnv();
+const adminCorsOrigins = resolveAdminCorsOrigins(appEnv, process.env.FRONTEND_URL);
 
-if (prodLike && !process.env.FRONTEND_URL) {
+if ((appEnv === 'production' || appEnv === 'preview') && !process.env.FRONTEND_URL) {
   console.warn(
-    '[cors] FRONTEND_URL not set; using default admin list (set FRONTEND_URL for extra origins e.g. Vercel previews)'
+    `[cors] FRONTEND_URL not set for APP_ENV=${appEnv}; using default admin origin(s) only`
   );
 }
-console.log('[cors] /api allowed admin Origin(s):', adminCorsOrigins.join(' | '));
+console.log(`[cors] APP_ENV=${appEnv} — /api allowed admin Origin(s):`, adminCorsOrigins.join(' | '));
+
+const isLocalDev = appEnv === 'development';
 
 const apiCors = cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true);
     const n = normalizeOrigin(origin);
     if (adminCorsOrigins.includes(n)) return callback(null, origin);
-    if (!prodLike) {
+    if (isLocalDev) {
       if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(n)) return callback(null, origin);
     }
     callback(null, false);
@@ -56,7 +53,7 @@ const apiCors = cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
 });
 
-const primaryFrontendUrl = adminCorsOrigins[0] || defaultAdminOrigin;
+const primaryFrontendUrl = adminCorsOrigins[0] || 'http://localhost:5173';
 
 function storefrontCorsOrigin(origin, callback) {
   if (!origin) return callback(null, true);

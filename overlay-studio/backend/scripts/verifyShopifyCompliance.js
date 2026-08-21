@@ -17,7 +17,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const IMPLUX_TOML = path.resolve(__dirname, '../../shopify-app/shopify.app.implux.toml');
+const IMPLUX_TOML = path.resolve(__dirname, '../../shopify-app/shopify.app.production.toml');
 const FALLBACK_TOML = path.resolve(__dirname, '../../shopify-app/shopify.app.toml');
 
 const REQUIRED_TOPICS = [

@@ -10,6 +10,7 @@ import {
   URGENCY_OPTIONS,
   labelByValue,
 } from './overlayRequestOptions.js';
+import { isEmailEnabled } from '../../../shared/appEnv.js';
 
 const DEFAULT_RECIPIENTS = ['matth@implux.io', 'philip.m@implux.io'];
 
@@ -133,6 +134,11 @@ async function createSmtpTransport() {
  * @param {Array<object>} opts.rows - parsed request rows (image as buffer + imageName optional)
  */
 export async function sendOverlayRequestEmail({ shop, vendorName, submissionOrderId, rows }) {
+  if (!isEmailEnabled()) {
+    console.log('[Implux] Email skipped — EMAIL_ENABLED is false for this environment');
+    return { skipped: true, reason: 'EMAIL_DISABLED' };
+  }
+
   const transport = await createSmtpTransport();
   const from =
     process.env.SMTP_FROM ||

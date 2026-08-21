@@ -1,0 +1,37 @@
+# Poptek — STAGING Shopify app (custom / non-production)
+# Client ID: 786f52ea5cd6c4e9c95a835dfecd2ecb
+#
+# Deploy ONLY with explicit intent:
+#   npm run deploy:staging
+#
+# Staging Railway URL is NOT configured yet (Phase 2B). Placeholder URLs below are
+# intentionally non-routable so this file cannot accidentally target production.
+
+name = "Poptek by Implux (Staging)"
+client_id = "786f52ea5cd6c4e9c95a835dfecd2ecb"
+application_url = "https://STAGING-SHOPIFY-APP-URL-NOT-CONFIGURED.invalid"
+embedded = true
+
+[webhooks]
+api_version = "2026-01"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+uri = "/webhooks/compliance"
+
+[access_scopes]
+scopes = "read_products,write_script_tags,read_orders,write_themes,read_themes"
+optional_scopes = []
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://STAGING-SHOPIFY-APP-URL-NOT-CONFIGURED.invalid/auth/callback",
+  "https://STAGING-SHOPIFY-APP-URL-NOT-CONFIGURED.invalid/auth/shopify/callback"
+]
+
+[pos]
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = false

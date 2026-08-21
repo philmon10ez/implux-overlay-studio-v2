@@ -7,6 +7,7 @@ import { Buffer } from 'node:buffer';
 import { authenticate } from '../shopify.server.js';
 import prisma, { ensureOverlaySubmissionTable } from '../db.server.js';
 import { sendOverlayRequestEmail, formatSubmissionOrderId } from '../lib/sendOverlayRequestEmail.server.js';
+import { PRODUCTION_API_HOST, resolveAppEnv } from '../../../shared/appEnv.js';
 import OverlayRequestForm from '../components/OverlayRequestForm.jsx';
 import ShopCampaignList from '../components/ShopCampaignList.jsx';
 
@@ -250,27 +251,34 @@ export const loader = async ({ request }) => {
     accessToken = dbSession?.accessToken || null;
   }
   if (backendUrl && syncSecret && shop && accessToken) {
-    try {
-      const shopNormalized = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
-      const res = await fetch(`${backendUrl}/api/shopify/sync-merchant`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-implux-merchant-sync-secret': syncSecret,
-        },
-        body: JSON.stringify({
-          shop: shopNormalized,
-          accessToken,
-          storeName: shopNormalized.replace('.myshopify.com', '').replace(/-/g, ' '),
-        }),
-      });
-      if (res.ok) {
-        console.log('[Implux] Merchant sync on app load OK for', shopNormalized);
-      } else {
-        console.warn('[Implux] Merchant sync on app load failed:', res.status, await res.text());
+    const appEnv = resolveAppEnv();
+    if ((appEnv === 'staging' || appEnv === 'preview') && backendUrl.includes(PRODUCTION_API_HOST)) {
+      console.error(
+        `[Implux] Refusing merchant sync: IMPLUX_BACKEND_URL targets ${PRODUCTION_API_HOST} while APP_ENV=${appEnv}`
+      );
+    } else {
+      try {
+        const shopNormalized = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const res = await fetch(`${backendUrl}/api/shopify/sync-merchant`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-implux-merchant-sync-secret': syncSecret,
+          },
+          body: JSON.stringify({
+            shop: shopNormalized,
+            accessToken,
+            storeName: shopNormalized.replace('.myshopify.com', '').replace(/-/g, ' '),
+          }),
+        });
+        if (res.ok) {
+          console.log('[Implux] Merchant sync on app load OK for', shopNormalized);
+        } else {
+          console.warn('[Implux] Merchant sync on app load failed:', res.status, await res.text());
+        }
+      } catch (e) {
+        console.warn('[Implux] Merchant sync on app load error:', e?.message);
       }
-    } catch (e) {
-      console.warn('[Implux] Merchant sync on app load error:', e?.message);
     }
   } else if (shop && backendUrl && syncSecret) {
     console.warn('[Implux] Merchant sync on app load skipped (no token):', {

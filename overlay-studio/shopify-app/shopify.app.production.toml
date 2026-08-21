@@ -1,0 +1,36 @@
+# Poptek by Implux — PRODUCTION Shopify app (App Store / live)
+# Client ID: bfcae2d7ecd83eb4fc96749fb543380c
+#
+# Deploy ONLY with explicit intent:
+#   CONFIRM_PRODUCTION_DEPLOY=YES npm run deploy:production
+#
+# DO NOT use generic `npm run deploy`.
+
+name = "Poptek by Implux"
+client_id = "bfcae2d7ecd83eb4fc96749fb543380c"
+application_url = "https://stunning-friendship-production.up.railway.app"
+embedded = true
+
+[webhooks]
+api_version = "2026-01"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+uri = "/webhooks/compliance"
+
+[access_scopes]
+scopes = "read_products,write_script_tags,read_orders,write_themes,read_themes"
+optional_scopes = []
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://stunning-friendship-production.up.railway.app/auth/callback",
+  "https://stunning-friendship-production.up.railway.app/auth/shopify/callback"
+]
+
+[pos]
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = false

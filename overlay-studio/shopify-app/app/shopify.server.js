@@ -3,6 +3,19 @@ import '@shopify/shopify-app-remix/adapters/node';
 import { ApiVersion, shopifyApp } from '@shopify/shopify-app-remix/server';
 import { PrismaSessionStorage } from '@shopify/shopify-app-session-storage-prisma';
 import prisma from './db.server.js';
+import { validateShopifyAppStartup } from './lib/startupValidation.server.js';
+import { PRODUCTION_API_HOST, resolveAppEnv } from '../../shared/appEnv.js';
+
+validateShopifyAppStartup();
+
+function assertSafeBackendUrl(backendUrl) {
+  const appEnv = resolveAppEnv();
+  if ((appEnv === 'staging' || appEnv === 'preview') && backendUrl.includes(PRODUCTION_API_HOST)) {
+    throw new Error(
+      `[Implux] Refusing merchant sync: IMPLUX_BACKEND_URL targets production host ${PRODUCTION_API_HOST} while APP_ENV=${appEnv}`
+    );
+  }
+}
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -32,6 +45,7 @@ const shopify = shopifyApp({
           hasAccessToken: !!session?.accessToken,
         });
       } else {
+        assertSafeBackendUrl(backendUrl);
         try {
           const shop = session.shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
           const url = `${backendUrl}/api/shopify/sync-merchant`;

@@ -1,0 +1,5 @@
+{
+  "name": "@poptek/shared-env",
+  "private": true,
+  "type": "module"
+}

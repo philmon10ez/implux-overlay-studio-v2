@@ -1,4 +1,5 @@
 import { authenticate } from '../shopify.server.js';
+import { PRODUCTION_API_HOST, resolveAppEnv } from '../../../shared/appEnv.js';
 
 const COMPLIANCE_TOPICS = new Set([
   'CUSTOMERS_DATA_REQUEST',
@@ -21,6 +22,14 @@ function forwardToBackend(topic, shop, payload, webhookId) {
   const secret = process.env.MERCHANT_SYNC_SECRET;
   const apiTopic = TOPIC_TO_API[topic];
   if (!backendUrl || !secret || !apiTopic) return;
+
+  const appEnv = resolveAppEnv();
+  if ((appEnv === 'staging' || appEnv === 'preview') && backendUrl.includes(PRODUCTION_API_HOST)) {
+    console.error(
+      `[shopify-compliance] Refusing forward to production backend (${PRODUCTION_API_HOST}) while APP_ENV=${appEnv}`
+    );
+    return;
+  }
 
   fetch(`${backendUrl}/api/shopify/webhooks/compliance/internal`, {
     method: 'POST',

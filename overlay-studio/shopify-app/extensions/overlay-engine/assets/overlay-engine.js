@@ -1,7 +1,7 @@
+/* AUTO-GENERATED PROXY URL — run scripts/build-overlay-engine-asset.mjs before deploy. Do not hand-edit PROXY_URL. */
 (function() {
   if (typeof Shopify === 'undefined' || !Shopify.shop) return;
-  var shop = Shopify.shop;
-  var PROXY_URL = 'https://api.implux.io/proxy';
+  var shop = Shopify.shop;  var PROXY_URL = 'https://api.implux.io/proxy';
 
   function normalizeCampaignType(t) {
     if (t == null || t === '') return '';

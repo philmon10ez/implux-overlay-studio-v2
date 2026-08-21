@@ -1,13 +1,13 @@
 /**
  * Fetch wrapper: base URL from VITE_API_URL, credentials: 'include' for cookie auth.
- * Production fallback so admin.implux.io works even if VITE_API_URL is not set in Vercel.
+ * Missing or unsafe configuration fails at module load (no production fallback).
  */
-const BASE =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD ? 'https://api.implux.io' : '');
+import { resolveApiBaseUrl } from './appEnv.js';
+
+const BASE = resolveApiBaseUrl();
 
 export async function api(path, options = {}) {
-  const url = path.startsWith('http') ? path : `${BASE.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+  const url = path.startsWith('http') ? path : `${BASE}${path.startsWith('/') ? path : `/${path}`}`;
   const res = await fetch(url, {
     ...options,
     credentials: 'include',
