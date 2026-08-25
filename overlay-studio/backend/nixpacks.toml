@@ -1,3 +1,6 @@
+# Force Railway/Nixpacks to use Node.js
+providers = ["node"]
+
 # Use npm install instead of npm ci so lock file sync issues don't fail the build
 [phases.install]
 cmds = ["npm install"]
