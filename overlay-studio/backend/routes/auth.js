@@ -5,17 +5,31 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import { resolveAppEnv } from '../../shared/appEnv.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET;
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'strict',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  path: '/',
-};
+
+/** Cookie options for httpOnly JWT auth (use APP_ENV — not NODE_ENV — on Railway/Vercel). */
+function authCookieOptions() {
+  const appEnv = resolveAppEnv();
+  const secure = appEnv !== 'development';
+  // Staging/preview admin may be on *.vercel.app while API is on api-staging.implux.io (cross-site).
+  const sameSite =
+    appEnv === 'staging' || appEnv === 'preview'
+      ? 'none'
+      : appEnv === 'production'
+        ? 'lax'
+        : 'strict';
+  return {
+    httpOnly: true,
+    secure,
+    sameSite,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+  };
+}
 
 // POST /api/auth/login — accept username or email
 router.post('/login', async (req, res, next) => {
@@ -46,7 +60,7 @@ router.post('/login', async (req, res, next) => {
       JWT_SECRET,
       { expiresIn: '7d' }
     );
-    res.cookie('token', token, COOKIE_OPTIONS);
+    res.cookie('token', token, authCookieOptions());
     res.json({
       user: { id: user.id, email: user.email, role: user.role, createdAt: user.createdAt },
     });
@@ -57,7 +71,8 @@ router.post('/login', async (req, res, next) => {
 
 // POST /api/auth/logout
 router.post('/logout', (_req, res) => {
-  res.clearCookie('token', { path: '/', httpOnly: true });
+  const { path, httpOnly, secure, sameSite } = authCookieOptions();
+  res.clearCookie('token', { path, httpOnly, secure, sameSite });
   res.json({ ok: true });
 });
 

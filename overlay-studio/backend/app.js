@@ -38,14 +38,27 @@ console.log(`[cors] APP_ENV=${appEnv} — /api allowed admin Origin(s):`, adminC
 
 const isLocalDev = appEnv === 'development';
 
+/** Vercel staging project + per-deploy preview URLs (hash suffix changes every deploy). */
+const STAGING_VERCEL_ADMIN_ORIGIN =
+  /^https:\/\/implux-overlay-studio-staging(-[a-z0-9]+)?\.vercel\.app$/i;
+
+function isAllowedAdminOrigin(origin) {
+  const n = normalizeOrigin(origin);
+  if (adminCorsOrigins.includes(n)) return true;
+  if (isLocalDev && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(n)) return true;
+  if (
+    (appEnv === 'staging' || appEnv === 'preview') &&
+    STAGING_VERCEL_ADMIN_ORIGIN.test(n)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 const apiCors = cors({
   origin(origin, callback) {
     if (!origin) return callback(null, true);
-    const n = normalizeOrigin(origin);
-    if (adminCorsOrigins.includes(n)) return callback(null, origin);
-    if (isLocalDev) {
-      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(n)) return callback(null, origin);
-    }
+    if (isAllowedAdminOrigin(origin)) return callback(null, origin);
     callback(null, false);
   },
   credentials: true,
@@ -115,7 +128,7 @@ export function createApp() {
 
   app.use((req, res) => {
     const origin = req.headers.origin;
-    if (origin && adminCorsOrigins.includes(normalizeOrigin(origin)) && String(req.originalUrl || '').startsWith('/api')) {
+    if (origin && isAllowedAdminOrigin(origin) && String(req.originalUrl || '').startsWith('/api')) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Vary', 'Origin');
@@ -127,7 +140,7 @@ export function createApp() {
     console.error(err);
     const status = err.status ?? err.statusCode ?? 500;
     const origin = req.headers.origin;
-    if (origin && adminCorsOrigins.includes(normalizeOrigin(origin)) && String(req.originalUrl || '').startsWith('/api')) {
+    if (origin && isAllowedAdminOrigin(origin) && String(req.originalUrl || '').startsWith('/api')) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Vary', 'Origin');
