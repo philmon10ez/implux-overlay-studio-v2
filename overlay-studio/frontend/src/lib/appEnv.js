@@ -33,6 +33,18 @@ export function resolveApiBaseUrl() {
   const appEnv = resolveAppEnv();
   const url = String(import.meta.env.VITE_API_URL || '').trim();
 
+  // Staging/preview: always call same-origin `/api`. Vercel rewrites those paths to the
+  // Railway staging backend so the JWT cookie is first-party. Chrome blocks third-party
+  // cookies across vercel.app → railway.app even with SameSite=None.
+  if (appEnv === 'staging' || appEnv === 'preview') {
+    if (url.includes(PRODUCTION_API_HOST)) {
+      throw new Error(
+        `VITE_API_URL must not target production host "${PRODUCTION_API_HOST}" when VITE_APP_ENV=${appEnv}.`
+      );
+    }
+    return '';
+  }
+
   if (!url) {
     throw new Error(
       `VITE_API_URL is required when VITE_APP_ENV=${appEnv}. ` +
@@ -42,14 +54,6 @@ export function resolveApiBaseUrl() {
 
   if (appEnv === 'development') {
     return url.replace(/\/$/, '');
-  }
-
-  if (appEnv === 'staging' || appEnv === 'preview') {
-    if (url.includes(PRODUCTION_API_HOST)) {
-      throw new Error(
-        `VITE_API_URL must not target production host "${PRODUCTION_API_HOST}" when VITE_APP_ENV=${appEnv}.`
-      );
-    }
   }
 
   if (appEnv === 'production' && !url.includes(PRODUCTION_API_HOST)) {

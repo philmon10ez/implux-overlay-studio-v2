@@ -15,10 +15,11 @@ const JWT_SECRET = process.env.JWT_SECRET;
 function authCookieOptions() {
   const appEnv = resolveAppEnv();
   const secure = appEnv !== 'development';
-  // Staging/preview admin may be on *.vercel.app while API is on api-staging.implux.io (cross-site).
+  // Staging admin should call /api via same-origin Vercel rewrite (first-party cookie).
+  // Lax works for that. None kept as fallback if a client still hits Railway directly.
   const sameSite =
     appEnv === 'staging' || appEnv === 'preview'
-      ? 'none'
+      ? 'lax'
       : appEnv === 'production'
         ? 'lax'
         : 'strict';
