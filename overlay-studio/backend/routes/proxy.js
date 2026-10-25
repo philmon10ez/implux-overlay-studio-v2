@@ -9,6 +9,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import optionalProxyHmac from '../middleware/optionalProxyHmac.js';
 import { verifyWebhook } from '../services/shopifyService.js';
+import { resolveOrderWebhookShopDomain } from '../lib/orderWebhookShopDomain.js';
 import { canonicalCampaignType } from '../lib/campaignType.js';
 import { parsePlacementType } from '../lib/placementType.js';
 import { buildContextFromProxyQuery } from '../services/recommendationTargetContext.js';
@@ -146,13 +147,16 @@ router.post('/conversion', async (req, res, next) => {
     }
     const orderId = body?.id?.toString() ?? body?.order_id?.toString();
     const total = parseFloat(body?.total_price ?? body?.total_price_set?.shop_money?.amount ?? 0);
-    const shopDomain = (body?.source_name ?? req.headers['x-shopify-shop-domain'] ?? '').toString();
+    const shopDomain = resolveOrderWebhookShopDomain(req, body);
     if (!orderId || !shopDomain) {
       return res.status(400).json({ error: 'Missing order id or shop' });
     }
     const merchant = await prisma.merchant.findFirst({
       where: {
-        shopifyDomain: { contains: shopDomain.replace(/^https?:\/\//, '').split('/')[0] },
+        OR: [
+          { shopifyDomain: shopDomain },
+          { shopifyDomain: `https://${shopDomain}` },
+        ],
         status: 'active',
       },
     });

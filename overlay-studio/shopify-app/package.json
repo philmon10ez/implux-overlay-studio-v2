@@ -18,7 +18,8 @@
     "build:extension:staging": "node scripts/build-overlay-engine-asset.mjs staging",
     "generate": "shopify app generate",
     "prisma": "prisma",
-    "setup": "node node_modules/prisma/build/index.js generate && node node_modules/prisma/build/index.js migrate deploy"
+    "setup": "node node_modules/prisma/build/index.js generate && node node_modules/prisma/build/index.js migrate deploy",
+    "test": "node --test app/lib/merchantSync.server.test.js app/lib/onboarding.server.test.js app/lib/sendOverlayRequestEmail.server.test.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

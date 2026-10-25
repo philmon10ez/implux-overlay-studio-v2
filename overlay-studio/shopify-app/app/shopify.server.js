@@ -1,21 +1,12 @@
 import './crypto-polyfill.server.js';
 import '@shopify/shopify-app-remix/adapters/node';
-import { ApiVersion, shopifyApp } from '@shopify/shopify-app-remix/server';
+import { ApiVersion, DeliveryMethod, shopifyApp } from '@shopify/shopify-app-remix/server';
 import { PrismaSessionStorage } from '@shopify/shopify-app-session-storage-prisma';
 import prisma from './db.server.js';
 import { validateShopifyAppStartup } from './lib/startupValidation.server.js';
-import { PRODUCTION_API_HOST, resolveAppEnv } from '../../shared/appEnv.js';
+import { syncMerchantFromSession } from './lib/merchantSync.server.js';
 
 validateShopifyAppStartup();
-
-function assertSafeBackendUrl(backendUrl) {
-  const appEnv = resolveAppEnv();
-  if ((appEnv === 'staging' || appEnv === 'preview') && backendUrl.includes(PRODUCTION_API_HOST)) {
-    throw new Error(
-      `[Implux] Refusing merchant sync: IMPLUX_BACKEND_URL targets production host ${PRODUCTION_API_HOST} while APP_ENV=${appEnv}`
-    );
-  }
-}
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -26,56 +17,24 @@ const shopify = shopifyApp({
   authPathPrefix: '/auth',
   sessionStorage: new PrismaSessionStorage(prisma),
   isEmbeddedApp: true,
-  // Avoid legacy OAuth cookie redirects in the admin iframe (fixes oauth_error=same_site_cookies / refresh loops).
-  // Pair with Shopify managed install: https://shopify.dev/docs/apps/auth/installation#shopify-managed-installation
+  // Managed install (use_legacy_install_flow = false in TOML) + token exchange for offline tokens.
   future: {
     unstable_newEmbeddedAuthStrategy: true,
   },
+  webhooks: {
+    APP_UNINSTALLED: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: '/webhooks/app/uninstalled',
+    },
+  },
   hooks: {
-    afterAuth: async ({ session, registerWebhooks }) => {
-      if (registerWebhooks) await registerWebhooks({ session });
-      const backendUrl = (process.env.IMPLUX_BACKEND_URL || process.env.BACKEND_API_URL || '').replace(/\/$/, '');
-      const syncSecret = process.env.MERCHANT_SYNC_SECRET;
-      const hasSession = session?.shop && session?.accessToken;
-      if (!backendUrl || !syncSecret || !hasSession) {
-        console.warn('[Implux] Merchant sync skipped:', {
-          hasBackendUrl: !!backendUrl,
-          hasSyncSecret: !!syncSecret,
-          hasShop: !!session?.shop,
-          hasAccessToken: !!session?.accessToken,
-        });
-      } else {
-        assertSafeBackendUrl(backendUrl);
-        try {
-          const shop = session.shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
-          const url = `${backendUrl}/api/shopify/sync-merchant`;
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-implux-merchant-sync-secret': syncSecret,
-            },
-            body: JSON.stringify({
-              shop,
-              accessToken: session.accessToken,
-              storeName: shop.replace('.myshopify.com', '').replace(/-/g, ' '),
-            }),
-          });
-          const text = await res.text();
-          if (res.ok) {
-            console.log('[Implux] Merchant sync OK for', shop);
-          } else {
-            console.error('[Implux] Merchant sync failed:', res.status, text);
-          }
-        } catch (e) {
-          console.error('[Implux] Merchant sync error:', e?.message || e);
-        }
+    afterAuth: async ({ session }) => {
+      try {
+        await shopify.registerWebhooks({ session });
+      } catch (e) {
+        console.error('[Implux] registerWebhooks failed:', e?.message || e);
       }
-      const themeExtensionId = process.env.THEME_EXTENSION_ID;
-      if (themeExtensionId && session?.shop) {
-        const shop = session.shop.replace(/^https?:\/\//, '');
-        return { redirectUrl: `https://${shop}/admin/themes/current/editor?context=apps&activateAppId=${themeExtensionId}` };
-      }
+      await syncMerchantFromSession(prisma, session, 'afterAuth');
     },
   },
 });

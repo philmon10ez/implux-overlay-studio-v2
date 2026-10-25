@@ -12,7 +12,22 @@ import {
 } from './overlayRequestOptions.js';
 import { isEmailEnabled } from '../../../shared/appEnv.js';
 
-const DEFAULT_RECIPIENTS = ['matth@implux.io', 'philip.m@implux.io'];
+export const DEFAULT_OVERLAY_REQUEST_RECIPIENTS = ['matth@implux.io', 'philip.m@implux.io'];
+
+/**
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {string[]}
+ */
+export function resolveOverlayRequestRecipients(env = process.env) {
+  const toRaw = env.OVERLAY_REQUEST_TO;
+  if (toRaw) {
+    return toRaw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [...DEFAULT_OVERLAY_REQUEST_RECIPIENTS];
+}
 
 function escapeHtml(s) {
   return String(s)
@@ -144,13 +159,7 @@ export async function sendOverlayRequestEmail({ shop, vendorName, submissionOrde
     process.env.SMTP_FROM ||
     (process.env.SMTP_USER ? `Implux Requests <${process.env.SMTP_USER}>` : null);
 
-  const toRaw = process.env.OVERLAY_REQUEST_TO;
-  const recipients = toRaw
-    ? toRaw
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : DEFAULT_RECIPIENTS;
+  const recipients = resolveOverlayRequestRecipients(process.env);
 
   if (!transport || !from) {
     throw new Error(

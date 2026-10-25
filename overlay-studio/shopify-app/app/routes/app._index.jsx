@@ -7,9 +7,16 @@ import { Buffer } from 'node:buffer';
 import { authenticate } from '../shopify.server.js';
 import prisma, { ensureOverlaySubmissionTable } from '../db.server.js';
 import { sendOverlayRequestEmail, formatSubmissionOrderId } from '../lib/sendOverlayRequestEmail.server.js';
-import { PRODUCTION_API_HOST, resolveAppEnv } from '../../../shared/appEnv.js';
 import OverlayRequestForm from '../components/OverlayRequestForm.jsx';
 import ShopCampaignList from '../components/ShopCampaignList.jsx';
+import SetupChecklist from '../components/SetupChecklist.jsx';
+import { syncMerchantFromSession } from '../lib/merchantSync.server.js';
+import {
+  buildActivateAppId,
+  buildThemeEditorEmbedUrl,
+  fetchAppEmbedStatus,
+  fetchMerchantSyncStatus,
+} from '../lib/onboarding.server.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://your-overlay-studio.vercel.app';
 
@@ -239,55 +246,25 @@ export const loader = async ({ request }) => {
     }
   }
 
-  // Sync this shop to Implux backend when the app is opened (covers installs that missed afterAuth or reinstall)
-  const backendUrl = (process.env.IMPLUX_BACKEND_URL || process.env.BACKEND_API_URL || '').replace(/\/$/, '');
-  const syncSecret = process.env.MERCHANT_SYNC_SECRET;
-  let accessToken = session?.accessToken;
-  if (!accessToken && shop) {
-    const shopNorm = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const dbSession = await prisma.session.findFirst({
-      where: { shop: shopNorm },
-    });
-    accessToken = dbSession?.accessToken || null;
-  }
-  if (backendUrl && syncSecret && shop && accessToken) {
-    const appEnv = resolveAppEnv();
-    if ((appEnv === 'staging' || appEnv === 'preview') && backendUrl.includes(PRODUCTION_API_HOST)) {
-      console.error(
-        `[Implux] Refusing merchant sync: IMPLUX_BACKEND_URL targets ${PRODUCTION_API_HOST} while APP_ENV=${appEnv}`
-      );
-    } else {
-      try {
-        const shopNormalized = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
-        const res = await fetch(`${backendUrl}/api/shopify/sync-merchant`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-implux-merchant-sync-secret': syncSecret,
-          },
-          body: JSON.stringify({
-            shop: shopNormalized,
-            accessToken,
-            storeName: shopNormalized.replace('.myshopify.com', '').replace(/-/g, ' '),
-          }),
-        });
-        if (res.ok) {
-          console.log('[Implux] Merchant sync on app load OK for', shopNormalized);
-        } else {
-          console.warn('[Implux] Merchant sync on app load failed:', res.status, await res.text());
-        }
-      } catch (e) {
-        console.warn('[Implux] Merchant sync on app load error:', e?.message);
-      }
-    }
-  } else if (shop && backendUrl && syncSecret) {
-    console.warn('[Implux] Merchant sync on app load skipped (no token):', {
-      shop,
-      hasBackendUrl: !!backendUrl,
-      hasSyncSecret: !!syncSecret,
-      hasToken: !!accessToken,
-    });
-  }
+  const shopLabel = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const storeConnected = Boolean(shop && session?.accessToken);
+
+  await syncMerchantFromSession(prisma, session, 'app_home');
+
+  const merchantSync = shopLabel
+    ? await fetchMerchantSyncStatus(prisma, shopLabel)
+    : { synced: false, reason: 'no_shop' };
+
+  const embedResult = storeConnected ? await fetchAppEmbedStatus(admin) : { status: 'unavailable' };
+  const embedStatus = embedResult.status;
+
+  const activateAppId = buildActivateAppId({
+    apiKey: process.env.SHOPIFY_API_KEY,
+    themeExtensionIdEnv: process.env.THEME_EXTENSION_ID,
+  });
+  const themeEditorUrl = buildThemeEditorEmbedUrl(shopLabel, activateAppId);
+
+  const readyForOverlayRequests = storeConnected && merchantSync.synced;
 
   let activeCampaignCount = 0;
   /** @type {{ id: number, name: string, status: string }[]} */
@@ -327,7 +304,6 @@ export const loader = async ({ request }) => {
     }
   }
 
-  const shopLabel = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
   const vendorName =
     (await fetchShopVendorName(admin)) ||
     shopLabel.replace('.myshopify.com', '').replace(/-/g, ' ');
@@ -339,6 +315,13 @@ export const loader = async ({ request }) => {
     shopLabel,
     vendorName,
     showOpenCampaigns,
+    onboarding: {
+      storeConnected,
+      merchantSynced: merchantSync.synced,
+      embedStatus,
+      readyForOverlayRequests,
+      themeEditorUrl,
+    },
   };
 };
 
@@ -348,8 +331,15 @@ const MAIN_TABS = [
 ];
 
 export default function AppIndex() {
-  const { activeCampaignCount, shopCampaigns, frontendUrl, shopLabel, vendorName, showOpenCampaigns } =
-    useLoaderData();
+  const {
+    activeCampaignCount,
+    shopCampaigns,
+    frontendUrl,
+    shopLabel,
+    vendorName,
+    showOpenCampaigns,
+    onboarding,
+  } = useLoaderData();
   const [selectedTab, setSelectedTab] = useState(0);
   const handleTabChange = useCallback((index) => setSelectedTab(index), []);
 
@@ -365,13 +355,22 @@ export default function AppIndex() {
           {selectedTab === 0 ? (
             <Layout>
               <Layout.Section>
+                <SetupChecklist
+                  storeConnected={onboarding.storeConnected}
+                  merchantSynced={onboarding.merchantSynced}
+                  embedStatus={onboarding.embedStatus}
+                  readyForOverlayRequests={onboarding.readyForOverlayRequests}
+                  themeEditorUrl={onboarding.themeEditorUrl}
+                />
+              </Layout.Section>
+              <Layout.Section>
                 <Card>
                   <BlockStack gap="400">
                     <Text as="h1" variant="headingLg">
-                      Poptek is Active
+                      Poptek is active
                     </Text>
                     <Text as="p" variant="bodyMd" tone="subdued">
-                      Your campaigns are managed from your Poptek dashboard (Implux).
+                      Your Poptek team publishes campaigns for this store after you submit overlay requests.
                     </Text>
                     <Text as="p" variant="bodyMd">
                       Active campaigns for this shop: <strong>{activeCampaignCount}</strong>
