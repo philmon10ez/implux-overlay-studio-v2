@@ -1,7 +1,385 @@
 /* AUTO-GENERATED PROXY URL — run scripts/build-overlay-engine-asset.mjs before deploy. Do not hand-edit PROXY_URL. */
 (function() {
-  if (typeof Shopify === 'undefined' || !Shopify.shop) return;
-  var shop = Shopify.shop;  var PROXY_URL = 'https://api.implux.io/proxy';
+  if (typeof window !== 'undefined') {
+    if (window.__poptekOverlayEngineStarted) return;
+    window.__poptekOverlayEngineStarted = true;
+  }
+  /* @poptek-storefront-logic:start */
+/** @typedef {{ ok: true, shop: string }} PoptekShopOk */
+/** @typedef {{ ok: false, reason: string }} PoptekShopFail */
+/** @typedef {PoptekShopOk | PoptekShopFail} PoptekShopResult */
+
+/** @typedef {{ ok: true, campaigns: object[] }} PoptekCampaignsOk */
+/** @typedef {{ ok: false, reason: string, status?: number }} PoptekCampaignsFail */
+
+const MYSHOPIFY_DOMAIN_RE = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i;
+
+/**
+ * Normalize shop domain from Liquid or Shopify global (not from URL query params).
+ * @param {unknown} raw
+ * @returns {string}
+ */
+function normalizePoptekShopDomain(raw) {
+  return String(raw || '')
+    .toLowerCase()
+    .trim()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '')
+    .split('/')[0]
+    .split('?')[0]
+    .split('#')[0];
+}
+
+/**
+ * @param {string} domain
+ * @returns {boolean}
+ */
+function isValidPoptekShopDomain(domain) {
+  if (!domain || typeof domain !== 'string') return false;
+  if (domain.length > 255) return false;
+  return MYSHOPIFY_DOMAIN_RE.test(domain);
+}
+
+/**
+ * @param {unknown} config
+ * @returns {string | null}
+ */
+function readPoptekConfigShop(config) {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) return null;
+  const shop = /** @type {{ shop?: unknown }} */ (config).shop;
+  if (shop == null || shop === '') return null;
+  if (typeof shop !== 'string') return null;
+  return shop;
+}
+
+/**
+ * Resolve verified shop: Liquid __POPTEK__.shop first, then Shopify.shop.
+ * @param {object} opts
+ * @param {() => unknown} [opts.getPoptekConfig]
+ * @param {() => unknown} [opts.getShopifyShop]
+ */
+function poptekResolveShopDomain(opts = {}) {
+  const getPoptekConfig = opts.getPoptekConfig || (() => null);
+  const getShopifyShop = opts.getShopifyShop || (() => null);
+
+  const fromLiquid = readPoptekConfigShop(getPoptekConfig());
+  const fromShopify = getShopifyShop();
+  const candidate = fromLiquid || fromShopify;
+  const normalized = normalizePoptekShopDomain(candidate);
+
+  if (!normalized) {
+    return /** @type {PoptekShopFail} */ ({ ok: false, reason: 'missing_shop' });
+  }
+  if (!isValidPoptekShopDomain(normalized)) {
+    return /** @type {PoptekShopFail} */ ({ ok: false, reason: 'invalid_shop_domain' });
+  }
+  return /** @type {PoptekShopOk} */ ({ ok: true, shop: normalized });
+}
+
+/**
+ * Shopify Theme Editor design mode — only trusted signal for editor-only preview behavior.
+ * Does not use __POPTEK__ or URL query params.
+ * @param {object} [opts]
+ * @param {() => boolean | undefined} [opts.getShopifyDesignMode]
+ */
+function poptekIsShopifyThemeEditorDesignMode(opts = {}) {
+  const getShopifyDesignMode = opts.getShopifyDesignMode || (() => false);
+  try {
+    return getShopifyDesignMode() === true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+/**
+ * Console diagnostics in Theme Editor (design mode) only — not for live shoppers.
+ * @param {object} opts
+ * @param {() => boolean | undefined} [opts.getDesignMode]
+ */
+function poptekIsDiagnosticContext(opts = {}) {
+  return poptekIsShopifyThemeEditorDesignMode({
+    getShopifyDesignMode: opts.getDesignMode,
+  });
+}
+
+/** Editor preview priority (first match wins — one preview overlay). */
+var POPTEK_EDITOR_PREVIEW_TYPE_PRIORITY = [
+  'welcome_mat',
+  'promo_banner',
+  'sticky_footer',
+  'spin_wheel',
+  'time_delay',
+  'exit_intent',
+  'scroll_depth',
+];
+
+/**
+ * Minimal campaign type normalization (aligned with overlay-engine.js).
+ * @param {unknown} t
+ */
+function normalizePoptekCampaignType(t) {
+  if (t == null || t === '') return '';
+  let s = String(t)
+    .toLowerCase()
+    .trim()
+    .replace(/-/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_');
+  if (
+    s === 'promo_code_banner' ||
+    s === 'promocode_banner' ||
+    s === 'promocodebanner' ||
+    s === 'promobanner'
+  ) {
+    return 'promo_banner';
+  }
+  if (
+    s === 'sticky_footer_bar' ||
+    s === 'stickyfooter' ||
+    s === 'sticky_bar' ||
+    s === 'footer_bar' ||
+    s === 'bottom_bar'
+  ) {
+    return 'sticky_footer';
+  }
+  if (
+    s === 'spin_to_win' ||
+    s === 'spin_to_win_wheel' ||
+    s === 'spinwheel' ||
+    s === 'prize_wheel' ||
+    s === 'spin_the_wheel'
+  ) {
+    return 'spin_wheel';
+  }
+  return s;
+}
+
+/**
+ * Cart-dependent campaigns cannot be instant-previewed without real cart data.
+ * @param {string} typeKey
+ * @param {object} [triggerConfig]
+ */
+function poptekCampaignRequiresCartForPreview(typeKey, triggerConfig) {
+  if (typeKey === 'upsell_modal') return true;
+  const tc = triggerConfig || {};
+  const minCart =
+    tc.cartValueMin != null
+      ? Number(tc.cartValueMin)
+      : tc.minCartValue != null
+        ? Number(tc.minCartValue)
+        : 0;
+  const useCart = tc.cartValueFilter || minCart > 0;
+  return !!(useCart && minCart > 0);
+}
+
+/**
+ * @param {string} typeKey
+ * @param {boolean} themeEditor
+ * @param {object} [triggerConfig]
+ */
+function poptekShouldInstantTriggerInEditor(typeKey, themeEditor, triggerConfig) {
+  if (!themeEditor) return false;
+  if (typeKey === 'upsell_modal') return false;
+  if (poptekCampaignRequiresCartForPreview(typeKey, triggerConfig)) return false;
+  return true;
+}
+
+/**
+ * Which show path to use for editor instant preview (after cart rules pass).
+ * @param {unknown} rawType
+ * @returns {'persistent_bar' | 'spin_wheel' | 'modal' | null}
+ */
+function poptekEditorPreviewShowTarget(rawType) {
+  const typeKey = normalizePoptekCampaignType(rawType);
+  if (!typeKey || typeKey === 'upsell_modal') return null;
+  if (typeKey === 'promo_banner' || typeKey === 'sticky_footer') return 'persistent_bar';
+  if (typeKey === 'spin_wheel') return 'spin_wheel';
+  return 'modal';
+}
+
+/**
+ * Theme Editor fetches omit client freq_state so capped campaigns can still preview without persisting caps.
+ * @param {boolean} themeEditor
+ * @param {string | null | undefined} freqStateEncoded
+ */
+function poptekBuildCampaignFetchFreqQs(themeEditor, freqStateEncoded) {
+  if (themeEditor) return '';
+  const fs = freqStateEncoded ? String(freqStateEncoded) : '';
+  return fs ? '&freq_state=' + fs : '';
+}
+
+/**
+ * Pick at most one campaign to preview in the Theme Editor.
+ * @param {object[]} campaigns
+ * @param {object} deps
+ * @param {(raw: unknown) => string} deps.normalizeType
+ * @param {(triggerConfig: object) => boolean} deps.matchesPage
+ * @param {(triggerConfig: object) => boolean} deps.matchesDevice
+ */
+function poptekSelectEditorPreviewCampaign(campaigns, deps) {
+  const normalizeType = deps.normalizeType || normalizePoptekCampaignType;
+  const matchesPage = deps.matchesPage;
+  const matchesDevice = deps.matchesDevice;
+  if (!Array.isArray(campaigns) || !matchesPage || !matchesDevice) return null;
+
+  /** @type {{ campaign: object, typeKey: string, rank: number }[]} */
+  const eligible = [];
+
+  for (let i = 0; i < campaigns.length; i++) {
+    const c = campaigns[i];
+    const typeKey = normalizeType(c && c.type);
+    if (!typeKey || typeKey === 'upsell_modal') continue;
+    if (poptekCampaignRequiresCartForPreview(typeKey, c.triggerConfig)) continue;
+    const tc = (c && c.triggerConfig) || {};
+    if (!matchesPage(tc)) continue;
+    if (!matchesDevice(tc)) continue;
+    let rank = POPTEK_EDITOR_PREVIEW_TYPE_PRIORITY.indexOf(typeKey);
+    if (rank < 0) rank = POPTEK_EDITOR_PREVIEW_TYPE_PRIORITY.length + 1;
+    eligible.push({ campaign: c, typeKey, rank });
+  }
+
+  if (!eligible.length) return null;
+
+  eligible.sort(function (a, b) {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    const ta = a.campaign.updatedAt ? Date.parse(String(a.campaign.updatedAt)) : 0;
+    const tb = b.campaign.updatedAt ? Date.parse(String(b.campaign.updatedAt)) : 0;
+    if (tb !== ta) return tb - ta;
+    return (Number(b.campaign.id) || 0) - (Number(a.campaign.id) || 0);
+  });
+
+  return eligible[0].campaign;
+}
+
+/**
+ * @param {boolean} diagnostic
+ * @param {string} message
+ * @param {Record<string, unknown>} [detail]
+ */
+function poptekLogDiagnostic(diagnostic, message, detail) {
+  if (!diagnostic) return;
+  try {
+    const safe = detail ? { ...detail } : {};
+    delete safe.accessToken;
+    delete safe.token;
+    delete safe.password;
+    delete safe.secret;
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('[Poptek overlay-engine]', message, safe);
+    }
+  } catch (_e) {}
+}
+
+/**
+ * @param {unknown} json
+ * @returns {PoptekCampaignsOk | PoptekCampaignsFail}
+ */
+function parsePoptekCampaignsProxyPayload(json) {
+  if (json == null || typeof json !== 'object' || Array.isArray(json)) {
+    return { ok: false, reason: 'invalid_json_shape' };
+  }
+  const campaigns = /** @type {{ campaigns?: unknown }} */ (json).campaigns;
+  if (campaigns === undefined) {
+    return { ok: false, reason: 'missing_campaigns_key' };
+  }
+  if (!Array.isArray(campaigns)) {
+    return { ok: false, reason: 'campaigns_not_array' };
+  }
+  return { ok: true, campaigns };
+}
+
+/**
+ * GET /proxy/campaigns with response validation (no silent failures in diagnostic mode).
+ * @param {object} opts
+ * @param {string} opts.proxyUrl
+ * @param {string} opts.shop
+ * @param {string} [opts.freqQs]
+ * @param {typeof fetch} [opts.fetchImpl]
+ */
+async function poptekFetchCampaigns(opts) {
+  const { proxyUrl, shop, freqQs = '', fetchImpl = fetch } = opts;
+  const base = String(proxyUrl || '').replace(/\/$/, '');
+  const url =
+    base + '/campaigns?shop=' + encodeURIComponent(shop) + (freqQs || '');
+
+  let res;
+  try {
+    res = await fetchImpl(url);
+  } catch (_err) {
+    return /** @type {PoptekCampaignsFail} */ ({ ok: false, reason: 'network_error' });
+  }
+
+  if (!res.ok) {
+    return /** @type {PoptekCampaignsFail} */ ({
+      ok: false,
+      reason: 'http_error',
+      status: res.status,
+    });
+  }
+
+  let json;
+  try {
+    json = await res.json();
+  } catch (_err) {
+    return /** @type {PoptekCampaignsFail} */ ({ ok: false, reason: 'json_parse_error' });
+  }
+
+  const parsed = parsePoptekCampaignsProxyPayload(json);
+  if (!parsed.ok) {
+    return /** @type {PoptekCampaignsFail} */ ({ ok: false, reason: parsed.reason });
+  }
+  return parsed;
+}
+
+/* @poptek-storefront-logic:end */  var PROXY_URL = 'https://api.implux.io/proxy';
+
+  function poptekGetPoptekConfig() {
+    try {
+      return typeof window !== 'undefined' && window.__POPTEK__ ? window.__POPTEK__ : null;
+    } catch (e0) {
+      return null;
+    }
+  }
+
+  function poptekGetShopifyShop() {
+    try {
+      return typeof Shopify !== 'undefined' && Shopify.shop ? Shopify.shop : null;
+    } catch (e1) {
+      return null;
+    }
+  }
+
+  function poptekGetDesignMode() {
+    try {
+      return typeof Shopify !== 'undefined' && Shopify.designMode === true;
+    } catch (e2) {
+      return false;
+    }
+  }
+
+  var poptekThemeEditor = poptekIsShopifyThemeEditorDesignMode({
+    getShopifyDesignMode: poptekGetDesignMode,
+  });
+
+  var poptekDiagnostic = poptekIsDiagnosticContext({
+    getDesignMode: poptekGetDesignMode,
+  });
+
+  var poptekShopResolved = poptekResolveShopDomain({
+    getPoptekConfig: poptekGetPoptekConfig,
+    getShopifyShop: poptekGetShopifyShop,
+  });
+
+  if (!poptekShopResolved.ok) {
+    poptekLogDiagnostic(poptekDiagnostic, 'Cannot resolve shop domain for campaign load', {
+      reason: poptekShopResolved.reason,
+      hasPoptekConfig: !!poptekGetPoptekConfig(),
+      hasShopifyGlobal: typeof Shopify !== 'undefined',
+    });
+    return;
+  }
+
+  var shop = poptekShopResolved.shop;
 
   function normalizeCampaignType(t) {
     if (t == null || t === '') return '';
@@ -525,15 +903,52 @@
     return arr;
   }
 
-  var impluxFreqQs = (function() {
-    var fs = impluxBuildFrequencyStateQuery();
-    return fs ? '&freq_state=' + fs : '';
-  })();
+  var impluxFreqQs = poptekBuildCampaignFetchFreqQs(
+    poptekThemeEditor,
+    poptekThemeEditor ? null : impluxBuildFrequencyStateQuery()
+  );
 
-  fetch(PROXY_URL + '/campaigns?shop=' + encodeURIComponent(shop) + impluxFreqQs)
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      var campaigns = data.campaigns || [];
+  poptekFetchCampaigns({
+    proxyUrl: PROXY_URL,
+    shop: shop,
+    freqQs: impluxFreqQs,
+    fetchImpl: fetch,
+  })
+    .then(function(result) {
+      if (!result.ok) {
+        poptekLogDiagnostic(poptekDiagnostic, 'Campaign load failed', {
+          reason: result.reason,
+          status: result.status,
+          shop: shop,
+        });
+        return;
+      }
+      var campaigns = result.campaigns;
+
+      if (poptekThemeEditor) {
+        if (!campaigns.length) {
+          poptekLogDiagnostic(poptekDiagnostic, 'Poptek loaded; no active campaigns returned for this shop', {
+            shop: shop,
+          });
+          return;
+        }
+        var editorPick = poptekSelectEditorPreviewCampaign(campaigns, {
+          normalizeType: normalizeCampaignType,
+          matchesPage: matchesPageTarget,
+          matchesDevice: matchesDevice,
+        });
+        if (!editorPick) {
+          poptekLogDiagnostic(
+            poptekDiagnostic,
+            'Poptek loaded; campaigns returned but none eligible for Theme Editor preview on this page/device (cart minimums and upsell modals are not instant-previewed)',
+            { shop: shop, campaignCount: campaigns.length }
+          );
+          return;
+        }
+        initCampaign(editorPick, { editorInstant: true });
+        return;
+      }
+
       var exitOnes = [];
       var scrollOnes = [];
       var welcomeOnes = [];
@@ -575,7 +990,12 @@
       if (stickyFooterOnes.length) initCampaign(stickyFooterOnes[0]);
       if (spinWheelOnes.length) initCampaign(spinWheelOnes[0]);
     })
-    .catch(function() {});
+    .catch(function(err) {
+      poptekLogDiagnostic(poptekDiagnostic, 'Campaign load request error', {
+        message: err && err.message ? String(err.message) : 'unknown',
+        shop: shop,
+      });
+    });
 
   /** --- Recommendation sets (placement + trigger rules via /proxy/recommendations) --- */
   function impluxDetectRecommendationPlacement() {
@@ -678,21 +1098,35 @@
     impluxFetchRecommendationsForPlacement(placement, baseQs).then(impluxApplyRecommendationsPayload);
   })();
 
-  function initCampaign(campaign) {
+  function initCampaign(campaign, options) {
+    options = options || {};
+    var editorInstant = !!options.editorInstant && poptekThemeEditor;
     var type = normalizeCampaignType(campaign.type);
     var triggerConfig = campaign.triggerConfig || {};
     var designConfig = campaign.designConfig || {};
     var id = campaign.id;
 
-    if (!impluxFrequencyAllowsCampaignShow(campaign)) return;
+    if (!editorInstant && !impluxFrequencyAllowsCampaignShow(campaign)) return;
 
-    if (isPromoBannerType(type) || isStickyFooterType(type)) {
+    if (!editorInstant && (isPromoBannerType(type) || isStickyFooterType(type))) {
       var dKey = 'os_bar_dismiss_' + id;
       if (sessionStorage.getItem(dKey)) return;
     }
 
     if (!matchesPageTarget(triggerConfig)) return;
     if (!matchesDevice(triggerConfig)) return;
+
+    if (editorInstant) {
+      if (!poptekShouldInstantTriggerInEditor(type, true, triggerConfig)) return;
+      if (isPromoBannerType(type) || isStickyFooterType(type)) {
+        checkCartAndShowPersistentBar(campaign);
+      } else if (isSpinWheelType(type)) {
+        checkCartAndShow(campaign, showSpinWheelOverlay);
+      } else {
+        checkCartAndShow(campaign, showOverlay);
+      }
+      return;
+    }
 
     if (isExitIntentType(type)) {
       registerExitIntent(campaign);
@@ -959,10 +1393,12 @@
     var designConfig = campaign.designConfig || {};
     var id = campaign.id;
     var dismissKey = 'os_bar_dismiss_' + id;
-    if (sessionStorage.getItem(dismissKey)) return;
+    if (!poptekThemeEditor && sessionStorage.getItem(dismissKey)) return;
 
-    if (!impluxFrequencyAllowsCampaignShow(campaign)) return;
-    impluxFrequencyRecordCampaignShow(campaign);
+    if (!poptekThemeEditor) {
+      if (!impluxFrequencyAllowsCampaignShow(campaign)) return;
+      impluxFrequencyRecordCampaignShow(campaign);
+    }
 
     var config = normalizeDesignConfig(designConfig, campaign.promoCode, campaign.type);
     var bar = buildPersistentBarDOM(config, campaign);
@@ -987,7 +1423,9 @@
       }
     });
 
-    navigator.sendBeacon(PROXY_URL + '/track?event=impression&campaign_id=' + id + '&shop=' + encodeURIComponent(shop));
+    if (!poptekThemeEditor) {
+      navigator.sendBeacon(PROXY_URL + '/track?event=impression&campaign_id=' + id + '&shop=' + encodeURIComponent(shop));
+    }
   }
 
   function pickWeightedSpinSegment(segments) {
@@ -1013,8 +1451,10 @@
     var designConfig = campaign.designConfig || {};
     var id = campaign.id;
 
-    if (!impluxFrequencyAllowsCampaignShow(campaign)) return;
-    impluxFrequencyRecordCampaignShow(campaign);
+    if (!poptekThemeEditor) {
+      if (!impluxFrequencyAllowsCampaignShow(campaign)) return;
+      impluxFrequencyRecordCampaignShow(campaign);
+    }
 
     var config = normalizeDesignConfig(designConfig, campaign.promoCode, campaign.type);
     var overlay = buildSpinWheelDOM(config, campaign);
@@ -1030,7 +1470,9 @@
       overlay.classList.add('os-visible');
     });
 
-    navigator.sendBeacon(PROXY_URL + '/track?event=impression&campaign_id=' + id + '&shop=' + encodeURIComponent(shop));
+    if (!poptekThemeEditor) {
+      navigator.sendBeacon(PROXY_URL + '/track?event=impression&campaign_id=' + id + '&shop=' + encodeURIComponent(shop));
+    }
   }
 
   function showOverlay(campaign) {
@@ -1038,8 +1480,10 @@
     var designConfig = campaign.designConfig || {};
     var id = campaign.id;
 
-    if (!impluxFrequencyAllowsCampaignShow(campaign)) return;
-    impluxFrequencyRecordCampaignShow(campaign);
+    if (!poptekThemeEditor) {
+      if (!impluxFrequencyAllowsCampaignShow(campaign)) return;
+      impluxFrequencyRecordCampaignShow(campaign);
+    }
 
     var config = normalizeDesignConfig(designConfig, campaign.promoCode, campaign.type);
     var overlay = buildOverlayDOM(config, campaign);
@@ -1055,7 +1499,9 @@
     }
     requestAnimationFrame(function() { overlay.classList.add('os-visible'); });
 
-    navigator.sendBeacon(PROXY_URL + '/track?event=impression&campaign_id=' + id + '&shop=' + encodeURIComponent(shop));
+    if (!poptekThemeEditor) {
+      navigator.sendBeacon(PROXY_URL + '/track?event=impression&campaign_id=' + id + '&shop=' + encodeURIComponent(shop));
+    }
   }
 
   function normalizeDesignConfig(d, promoCode, campaignType) {

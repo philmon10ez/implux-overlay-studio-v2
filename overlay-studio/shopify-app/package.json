@@ -19,7 +19,7 @@
     "generate": "shopify app generate",
     "prisma": "prisma",
     "setup": "node node_modules/prisma/build/index.js generate && node node_modules/prisma/build/index.js migrate deploy",
-    "test": "node --test app/lib/merchantSync.server.test.js app/lib/onboarding.server.test.js app/lib/sendOverlayRequestEmail.server.test.js"
+    "test": "node scripts/sync-overlay-engine-storefront.mjs && node --test app/lib/merchantSync.server.test.js app/lib/onboarding.server.test.js app/lib/sendOverlayRequestEmail.server.test.js extensions/overlay-engine/assets/overlay-engine-storefront.test.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

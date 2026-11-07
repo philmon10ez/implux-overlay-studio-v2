@@ -1,7 +1,16 @@
 {% comment %}
   Implux — App Embed block.
-  Loads the overlay-engine.js script on the storefront.
+  Loads Poptek storefront config (shop domain) then overlay-engine.js.
 {% endcomment %}
+<script>
+  (function () {
+    var w = window;
+    w.__POPTEK__ = w.__POPTEK__ || {};
+    if (typeof w.__POPTEK__.shop === 'undefined') {
+      w.__POPTEK__.shop = {{ shop.permanent_domain | json }};
+    }
+  })();
+</script>
 {{ 'overlay-engine.js' | asset_url | script_tag }}
 
 {% schema %}

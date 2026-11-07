@@ -7,12 +7,19 @@
  *   POPTEK_PROXY_URL=https://api.implux.io/proxy node scripts/build-overlay-engine-asset.mjs production
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { validateThemeExtensionProxyUrl } from '../../shared/serviceUrlGuard.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const assetPath = join(__dirname, '../extensions/overlay-engine/assets/overlay-engine.js');
+const sync = spawnSync(process.execPath, [join(__dirname, 'sync-overlay-engine-storefront.mjs')], {
+  stdio: 'inherit',
+});
+if (sync.status !== 0) {
+  process.exit(sync.status ?? 1);
+}
 
 const target = process.argv[2];
 if (target !== 'production' && target !== 'staging') {
