@@ -3,6 +3,7 @@
  * Shopify mandatory compliance webhooks (GDPR).
  */
 import { verifyShopifyWebhookHmac } from '../services/shopifyWebhookHmac.js';
+import { secretsEqual } from '../../shared/timingSafeSecret.js';
 import {
   isComplianceTopic,
   isDuplicateWebhookDelivery,
@@ -29,23 +30,14 @@ function complianceDebugEnabled() {
 /** Temporary diagnostics — enable with COMPLIANCE_WEBHOOK_DEBUG=true on Railway. Never logs secrets. */
 function logComplianceDebug(req, res, extra = {}) {
   if (!complianceDebugEnabled()) return;
-  const bodyPreview = Buffer.isBuffer(req.body)
-    ? req.body.toString('utf8').slice(0, 500)
-    : String(req.body ?? '').slice(0, 500);
   safeComplianceRequestLog({
     event: 'debug_trace',
     method: req.method,
     url: req.originalUrl || req.url,
-    headers: {
-      'content-type': req.get('content-type') || '',
-      'x-shopify-topic': req.get('X-Shopify-Topic') || '',
-      'x-shopify-shop-domain': req.get('X-Shopify-Shop-Domain') || '',
-      'x-shopify-webhook-id': req.get('X-Shopify-Webhook-Id') || '',
-      'x-shopify-hmac-sha256-present': Boolean(req.get('X-Shopify-Hmac-Sha256')),
-      'user-agent': req.get('user-agent') || '',
-    },
-    bodyPreview,
-    bodyIsBuffer: Buffer.isBuffer(req.body),
+    topic: req.get('X-Shopify-Topic') || '',
+    shopDomain: req.get('X-Shopify-Shop-Domain') || '',
+    webhookId: req.get('X-Shopify-Webhook-Id') || '',
+    hmacPresent: Boolean(req.get('X-Shopify-Hmac-Sha256')),
     bodyLength: Buffer.isBuffer(req.body) ? req.body.length : 0,
     ...extra,
   });
@@ -194,7 +186,7 @@ export async function complianceInternalForwardHandler(req, res) {
     return res.sendStatus(503);
   }
   const sent = req.get('x-implux-compliance-forward-secret') || '';
-  if (sent !== expected) {
+  if (!secretsEqual(sent, expected)) {
     return res.sendStatus(401);
   }
 

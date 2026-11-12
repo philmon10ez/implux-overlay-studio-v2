@@ -19,6 +19,9 @@ import recommendationSetsRoutes from './routes/recommendationSets.js';
 import recommendationTargetingRoutes from './routes/recommendationTargeting.js';
 import conversionIntelligenceRoutes from './routes/conversionIntelligence.js';
 import { resolveAppEnv, resolveAdminCorsOrigins } from '../shared/appEnv.js';
+import { securityHeaders, privateCache } from './middleware/securityHeaders.js';
+import { conversionWebhookHandler } from './routes/proxy.js';
+import { scrubErrorForLog } from '../shared/safeLog.js';
 
 /** Admin dashboard origins (cookie auth + CORS). Comma-separated in FRONTEND_URL. */
 function normalizeOrigin(o) {
@@ -87,10 +90,12 @@ const proxyCors = cors({
 export function createApp() {
   const app = express();
 
+  app.disable('x-powered-by');
+  app.use(securityHeaders);
   app.use(cookieParser());
 
   // Compliance webhooks: raw body must be preserved for HMAC verification (before express.json()).
-  const complianceRawJson = express.raw({ type: 'application/json' });
+  const complianceRawJson = express.raw({ type: 'application/json', limit: '1mb' });
   app
     .route('/webhooks/compliance')
     .post(complianceRawJson, complianceWebhookHandler)
@@ -98,10 +103,18 @@ export function createApp() {
       res.sendStatus(405);
     });
 
-  app.use(express.json());
+  // Order webhooks must be hashed against Shopify's raw bytes, not a re-serialized body.
+  app.post(
+    '/proxy/conversion',
+    express.raw({ type: 'application/json', limit: '1mb' }),
+    conversionWebhookHandler
+  );
+
+  app.use(express.json({ limit: '1mb' }));
 
   app.post('/api/shopify/webhooks/compliance/internal', complianceInternalForwardHandler);
 
+  app.use('/api', privateCache);
   app.use('/api', apiCors);
 
   app.get('/health', (_req, res) => {
@@ -122,7 +135,7 @@ export function createApp() {
   app.use(
     '/proxy',
     proxyCors,
-    express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }),
+    express.json({ limit: '1mb' }),
     proxyRoutes
   );
 
@@ -137,17 +150,17 @@ export function createApp() {
   });
 
   app.use((err, req, res, _next) => {
-    console.error(err);
-    const status = err.status ?? err.statusCode ?? 500;
+    console.error('[http] request_failed', scrubErrorForLog(err));
+    const status = Number(err.status ?? err.statusCode ?? 500);
+    const safeStatus = status >= 400 && status < 600 ? status : 500;
     const origin = req.headers.origin;
     if (origin && isAllowedAdminOrigin(origin) && String(req.originalUrl || '').startsWith('/api')) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Vary', 'Origin');
     }
-    res.status(status).json({
-      error: err.message ?? 'Internal server error',
-    });
+    const clientError = safeStatus >= 500 ? 'Internal server error' : 'Request failed';
+    res.status(safeStatus >= 500 ? 500 : safeStatus).json({ error: clientError });
   });
 
   return app;

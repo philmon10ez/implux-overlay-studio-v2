@@ -4,6 +4,8 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import auth from '../middleware/auth.js';
+import { encryptForStorage } from '../../shared/tokenCipher.js';
+import { canonicalShopDomain } from '../services/shopifyComplianceService.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -39,11 +41,15 @@ router.post('/', async (req, res, next) => {
     if (!storeName || !shopifyDomain || !accessToken) {
       return res.status(400).json({ error: 'storeName, shopifyDomain, and accessToken required' });
     }
+    const domain = canonicalShopDomain(shopifyDomain);
+    if (!domain || !domain.endsWith('.myshopify.com')) {
+      return res.status(400).json({ error: 'A myshopify.com domain is required' });
+    }
     const merchant = await prisma.merchant.create({
       data: {
-        storeName: String(storeName),
-        shopifyDomain: String(shopifyDomain).toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, ''),
-        accessToken: String(accessToken),
+        storeName: String(storeName).slice(0, 120),
+        shopifyDomain: domain,
+        accessToken: encryptForStorage(String(accessToken)),
         rakutenMid: rakutenMid != null ? String(rakutenMid) : null,
         status: status ?? 'active',
       },
@@ -63,8 +69,14 @@ router.put('/:id', async (req, res, next) => {
     const { storeName, shopifyDomain, accessToken, rakutenMid, status } = req.body ?? {};
     const data = {};
     if (storeName !== undefined) data.storeName = String(storeName);
-    if (shopifyDomain !== undefined) data.shopifyDomain = String(shopifyDomain).toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
-    if (accessToken !== undefined) data.accessToken = String(accessToken);
+    if (shopifyDomain !== undefined) {
+      const domain = canonicalShopDomain(shopifyDomain);
+      if (!domain || !domain.endsWith('.myshopify.com')) return res.status(400).json({ error: 'A myshopify.com domain is required' });
+      data.shopifyDomain = domain;
+    }
+    if (accessToken !== undefined && accessToken !== '' && accessToken !== '••••••••') {
+      data.accessToken = encryptForStorage(String(accessToken));
+    }
     if (rakutenMid !== undefined) data.rakutenMid = rakutenMid === null || rakutenMid === '' ? null : String(rakutenMid);
     if (status !== undefined) data.status = String(status);
     const merchant = await prisma.merchant.update({

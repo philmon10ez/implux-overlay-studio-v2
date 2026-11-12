@@ -4,6 +4,8 @@
  */
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import { secretsEqual } from '../../shared/timingSafeSecret.js';
+import { encryptForStorage } from '../../shared/tokenCipher.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -22,8 +24,8 @@ function requireSyncSecret(req, res) {
     res.status(503).json({ error: 'Merchant sync not configured' });
     return null;
   }
-  const sent = req.header('x-implux-merchant-sync-secret') || req.headers['x-implux-merchant-sync-secret'];
-  if (sent !== expected) {
+  const sent = req.header('x-implux-merchant-sync-secret') || '';
+  if (!secretsEqual(String(sent), expected)) {
     console.warn('[Implux] shopify sync route: 401 secret mismatch');
     res.status(401).json({ error: 'Unauthorized' });
     return null;
@@ -52,11 +54,11 @@ export async function upsertMerchantFromSync(db, { shop, accessToken, storeName 
     create: {
       storeName: name.slice(0, 120),
       shopifyDomain,
-      accessToken: String(accessToken),
+      accessToken: encryptForStorage(String(accessToken)),
       status: 'active',
     },
     update: {
-      accessToken: String(accessToken),
+      accessToken: encryptForStorage(String(accessToken)),
       storeName: name.slice(0, 120),
       status: 'active',
     },

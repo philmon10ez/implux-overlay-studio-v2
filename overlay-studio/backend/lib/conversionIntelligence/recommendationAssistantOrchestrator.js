@@ -77,9 +77,7 @@ export async function runRecommendationAssistant(input) {
     designTheme: context.designTheme,
   };
 
-  const merchantForPrompt = merchantMeta
-    ? { storeName: merchantMeta.storeName, shopifyDomain: merchantMeta.shopifyDomain }
-    : null;
+  const merchantForPrompt = merchantMeta?.storeName ? { storeName: merchantMeta.storeName } : null;
 
   const userEnvelope = buildRecommendationAssistantUserEnvelope({
     intent,

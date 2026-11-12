@@ -24,11 +24,13 @@ export function resolveAppEnv(env = process.env) {
 
   if (!raw) {
     if (env.NODE_ENV === 'test') return 'development';
-    if (env.NODE_ENV === 'production' || env.RAILWAY_ENVIRONMENT || env.VERCEL) {
-      console.warn(
-        '[app-env] APP_ENV is not set on a deployed host — defaulting to "production". Set APP_ENV explicitly (recommended).'
+    const deployed = Boolean(
+      env.RAILWAY_ENVIRONMENT || env.RAILWAY_PROJECT_ID || env.RAILWAY_SERVICE_ID || env.VERCEL
+    );
+    if (deployed) {
+      throw new Error(
+        '[app-env] APP_ENV is required on Railway or Vercel. Refusing to default to production.'
       );
-      return 'production';
     }
     return 'development';
   }

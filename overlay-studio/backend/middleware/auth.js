@@ -1,48 +1,44 @@
 /**
- * JWT verification from httpOnly cookie.
- * Expects cookie name: token (or similar). Attaches req.user = { id, email, role }.
+ * Staff JWT verification. Loads the user from the database on every request.
+ * A deleted user, a changed password, or a non-admin role is rejected.
+ * Shopify merchant sessions are not staff credentials.
  */
-import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import { authenticateStaffToken } from '../lib/staffAuth.js';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
-  console.warn('JWT_SECRET is not set — auth will fail');
+  console.warn('[security] JWT_SECRET is not set — staff auth will fail');
 }
 
-export default function authMiddleware(req, res, next) {
-  const token = req.cookies?.token ?? req.cookies?.accessToken;
+async function findStaffUser(id) {
+  return prisma.user.findUnique({
+    where: { id },
+    select: { id: true, email: true, role: true, password: true },
+  });
+}
 
-  if (!token) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
-
+export default async function authMiddleware(req, res, next) {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const { id, email, role } = decoded;
-    if (!id || !email) {
-      return res.status(401).json({ error: 'Invalid token payload' });
+    const result = await authenticateStaffToken(req.cookies?.token, {
+      jwtSecret: JWT_SECRET,
+      findUser: findStaffUser,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
     }
-    req.user = { id, email, role };
+    req.user = result.user;
     return next();
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    return next(err);
   }
 }
 
 /**
- * Optional: load full user from DB and attach to req.user
+ * @deprecated Use the default middleware. Kept so older imports still reject missing users.
  */
 export async function attachUser(req, res, next) {
-  if (!req.user?.id) return next();
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: { id: true, email: true, role: true, createdAt: true },
-    });
-    if (user) req.user = user;
-  } catch (_) {}
-  next();
+  return authMiddleware(req, res, next);
 }

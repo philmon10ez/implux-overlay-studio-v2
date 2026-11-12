@@ -2,15 +2,20 @@
  * Rakuten Advertising API: auth, advertisers, transactions, sync to DB.
  */
 import { PrismaClient } from '@prisma/client';
+import { decryptFromStorage } from '../../shared/tokenCipher.js';
 
 const prisma = new PrismaClient();
 const BASE = 'https://api.rakutenadvertising.com';
 let accessToken = null;
 
 async function getCredentials() {
-  const c = await prisma.rakutenCredentials.findFirst();
-  if (!c) throw Object.assign(new Error('Rakuten credentials not configured'), { statusCode: 400 });
-  return c;
+  const stored = await prisma.rakutenCredentials.findFirst();
+  if (!stored) throw Object.assign(new Error('Rakuten credentials not configured'), { statusCode: 400, publicMessage: 'Rakuten credentials not configured' });
+  return {
+    ...stored,
+    clientSecret: decryptFromStorage(stored.clientSecret),
+    securityToken: decryptFromStorage(stored.securityToken),
+  };
 }
 
 /**
@@ -29,8 +34,7 @@ export async function authenticate() {
     body: body.toString(),
   });
   if (!res.ok) {
-    const t = await res.text();
-    throw Object.assign(new Error(t || `Token request failed ${res.status}`), { statusCode: res.status });
+    throw Object.assign(new Error('Rakuten authentication failed'), { statusCode: 502 });
   }
   const data = await res.json();
   accessToken = data.access_token;

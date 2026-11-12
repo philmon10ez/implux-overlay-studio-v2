@@ -66,6 +66,28 @@ export function validateShopifyAppPublicUrl(env = process.env) {
   return raw.replace(/\/$/, '');
 }
 
+/** Verified existing staging backend. Not a pattern — exact host only. */
+const VERIFIED_STAGING_THEME_PROXY_HOST = 'implux-overlay-studio-v2-staging.up.railway.app';
+
+/**
+ * Staging theme builds may use the existing Railway proxy or the planned custom host.
+ * Exact https URL only: no subdomains, ports, credentials, query, or extra path.
+ * @param {string} proxyUrl
+ */
+function isAllowedStagingThemeProxyUrl(proxyUrl) {
+  let parsed;
+  try {
+    parsed = new URL(proxyUrl);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'https:') return false;
+  if (parsed.username || parsed.password || parsed.port) return false;
+  if (parsed.pathname !== '/proxy' || parsed.search || parsed.hash) return false;
+  const host = parsed.hostname.toLowerCase();
+  return host === VERIFIED_STAGING_THEME_PROXY_HOST || host === STAGING_EXPECTED_API_HOST;
+}
+
 /**
  * @param {string} proxyUrl full proxy base (…/proxy)
  * @param {'production'|'staging'} target
@@ -84,9 +106,9 @@ export function validateThemeExtensionProxyUrl(proxyUrl, target) {
         `[theme-extension] Staging POPTEK_PROXY_URL must not target production host "${PRODUCTION_API_HOST}".`
       );
     }
-    if (!urlHostIncludes(url, STAGING_EXPECTED_API_HOST)) {
+    if (!isAllowedStagingThemeProxyUrl(url)) {
       throw new Error(
-        `[theme-extension] Staging POPTEK_PROXY_URL must target "${STAGING_EXPECTED_API_HOST}" (got "${url}").`
+        `[theme-extension] Staging POPTEK_PROXY_URL must be https://${VERIFIED_STAGING_THEME_PROXY_HOST}/proxy or https://${STAGING_EXPECTED_API_HOST}/proxy (got "${url}").`
       );
     }
   }

@@ -12,6 +12,8 @@ import { resolveOrderWebhookShopDomain } from '../lib/orderWebhookShopDomain.js'
 import { PRODUCTION_API_HOST } from '../../shared/appEnv.js';
 import { assertSafeBackendUrlForSync } from '../../shopify-app/app/lib/merchantSync.server.js';
 
+process.env.POPTEK_DISABLE_COMPLIANCE_SIDE_EFFECTS = '1';
+
 const TEST_SECRET = 'regression-test-merchant-sync-secret';
 
 test('merchant sync: staging refuses production API host (cross-env guard)', () => {

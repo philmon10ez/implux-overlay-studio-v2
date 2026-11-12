@@ -1,5 +1,11 @@
 node_modules
 .env
+.env.*
+!.env.example
 dist
 *.log
 .DS_Store
+*.pem
+*.key
+credentials.json
+id_rsa

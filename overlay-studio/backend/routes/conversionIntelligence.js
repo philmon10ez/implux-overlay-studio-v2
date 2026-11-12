@@ -4,6 +4,7 @@
  */
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import { createRateLimiter } from '../lib/rateLimit.js';
 import auth from '../middleware/auth.js';
 import {
   validateRecommendationAssistantRequest,
@@ -15,9 +16,14 @@ const router = express.Router();
 router.use(auth);
 
 const prisma = new PrismaClient();
+const assistantLimiter = createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 });
 
 router.post('/recommendation-assistant', async (req, res, next) => {
   try {
+    const limit = assistantLimiter.check(String(req.user?.id || 'staff'));
+    if (!limit.ok) {
+      return res.status(429).json({ ok: false, error: 'Too many requests' });
+    }
     const validated = validateRecommendationAssistantRequest(req.body);
     if (!validated.ok) {
       return res.status(400).json({

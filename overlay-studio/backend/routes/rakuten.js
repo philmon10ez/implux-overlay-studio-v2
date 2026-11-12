@@ -4,6 +4,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import auth from '../middleware/auth.js';
+import { encryptForStorage } from '../../shared/tokenCipher.js';
 import {
   authenticate,
   getAdvertisers,
@@ -31,18 +32,18 @@ router.post('/connect', async (req, res, next) => {
         where: { id: existing.id },
         data: {
           clientId: String(clientId),
-          clientSecret: String(clientSecret),
+          clientSecret: encryptForStorage(String(clientSecret)),
           publisherId: String(publisherId),
-          securityToken: String(securityToken),
+          securityToken: encryptForStorage(String(securityToken)),
         },
       });
     } else {
       await prisma.rakutenCredentials.create({
         data: {
           clientId: String(clientId),
-          clientSecret: String(clientSecret),
+          clientSecret: encryptForStorage(String(clientSecret)),
           publisherId: String(publisherId),
-          securityToken: String(securityToken),
+          securityToken: encryptForStorage(String(securityToken)),
         },
       });
     }

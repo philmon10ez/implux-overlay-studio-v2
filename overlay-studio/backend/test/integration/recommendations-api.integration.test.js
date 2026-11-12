@@ -6,9 +6,11 @@ import './test-env.mjs';
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
 import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
 import { createApp } from '../../app.js';
+import { signStaffToken } from '../../lib/staffAuth.js';
 
 const prisma = new PrismaClient();
 const app = createApp();
@@ -19,9 +21,24 @@ after(async () => {
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-function authAgent() {
-  const token = jwt.sign({ id: 1, email: 'integration@test.io', role: 'admin' }, JWT_SECRET);
-  return request.agent(app).set('Cookie', `token=${token}`);
+async function authAgent() {
+  const password = await bcrypt.hash('integration-only-password', 4);
+  const email = `integration-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
+  const created = await prisma.user.create({
+    data: { email, username: email, password, role: 'admin' },
+  });
+  const token = signStaffToken(
+    { id: created.id, email: created.email, role: created.role, password },
+    JWT_SECRET
+  );
+  const agent = request.agent(app).set('Cookie', `token=${token}`);
+  const originalDelete = agent.delete.bind(agent);
+  agent.cleanupStaff = async () => {
+    await prisma.user.delete({ where: { id: created.id } }).catch(() => {});
+  };
+  void originalDelete;
+  void jwt;
+  return agent;
 }
 
 /** Set RUN_INTEGRATION_TESTS=1 with a migrated DB to exercise Prisma + HTTP CRUD. */
@@ -41,7 +58,7 @@ test(
       },
     });
     const mid = merchant.id;
-    const agent = authAgent();
+    const agent = await authAgent();
 
     try {
       const listEmpty = await agent.get('/api/products').query({ merchantId: mid });
@@ -104,23 +121,36 @@ test(
 
       await agent.delete(`/api/products/${pid}`).expect(204);
     } finally {
+      await agent.cleanupStaff?.();
       await prisma.merchant.delete({ where: { id: mid } }).catch(() => {});
     }
   }
 );
 
-test('integration: validation errors — missing merchantId, bad body', async () => {
-  const agent = authAgent();
+test(
+  'integration: validation errors — missing merchantId, bad body',
+  { skip: !runDbIntegration },
+  async () => {
+  const agent = await authAgent();
+  try {
   const r = await agent.get('/api/products');
   assert.equal(r.status, 400);
   assert.match(r.body.error, /merchantId/i);
 
   const r2 = await agent.post('/api/products').send({ title: 'x' });
   assert.equal(r2.status, 400);
-});
+  } finally {
+    await agent.cleanupStaff();
+  }
+  }
+);
 
-test('integration: conversion intelligence rejects invalid body', async () => {
-  const agent = authAgent();
+test(
+  'integration: conversion intelligence rejects invalid body',
+  { skip: !runDbIntegration },
+  async () => {
+  const agent = await authAgent();
+  try {
   const res = await agent.post('/api/conversion-intelligence/recommendation-assistant').send({
     intent: 'not-a-real-intent-xyz',
     userMessage: 'hi',
@@ -128,10 +158,18 @@ test('integration: conversion intelligence rejects invalid body', async () => {
   assert.equal(res.status, 400);
   assert.equal(res.body.ok, false);
   assert.ok(res.body.error);
-});
+  } finally {
+    await agent.cleanupStaff();
+  }
+  }
+);
 
-test('integration: conversion intelligence accepts minimal valid payload', async () => {
-  const agent = authAgent();
+test(
+  'integration: conversion intelligence accepts minimal valid payload',
+  { skip: !runDbIntegration },
+  async () => {
+  const agent = await authAgent();
+  try {
   const res = await agent.post('/api/conversion-intelligence/recommendation-assistant').send({
     intent: 'optimize',
     userMessage: 'Improve my set',
@@ -145,4 +183,8 @@ test('integration: conversion intelligence accepts minimal valid payload', async
   assert.equal(res.body.ok, true);
   assert.ok(res.body.schemaVersion);
   assert.ok(Array.isArray(res.body.suggestions));
-});
+  } finally {
+    await agent.cleanupStaff();
+  }
+  }
+);

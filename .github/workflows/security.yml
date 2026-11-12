@@ -1,0 +1,20 @@
+name: security
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  secrets-and-guards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Reject credential-shaped tracked files
+        run: node overlay-studio/scripts/scan-secrets.mjs
+      - name: Security unit tests that do not need a database
+        run: node --test overlay-studio/shared/serviceUrlGuard.test.js overlay-studio/shopify-app/storefront/overlaySanitize.test.mjs overlay-studio/shopify-app/app/lib/imageSignature.server.test.js overlay-studio/backend/test/token-cipher.test.js overlay-studio/backend/test/storefront-and-env-guards.test.js

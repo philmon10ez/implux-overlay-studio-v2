@@ -7,8 +7,9 @@
  */
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
-import optionalProxyHmac from '../middleware/optionalProxyHmac.js';
+import storefrontProxyAuth from '../middleware/storefrontProxyAuth.js';
 import { verifyWebhook } from '../services/shopifyService.js';
+import { attributeOrderConversion } from '../services/orderConversion.js';
 import { resolveOrderWebhookShopDomain } from '../lib/orderWebhookShopDomain.js';
 import { canonicalCampaignType } from '../lib/campaignType.js';
 import { parsePlacementType } from '../lib/placementType.js';
@@ -21,14 +22,21 @@ import {
   attachResolvedFrequencyCapToCampaign,
   attachResolvedFrequencyCapToRecommendationSet,
 } from '../lib/frequencyCap.js';
+import { createRateLimiter } from '../lib/rateLimit.js';
+import { claimedShopMatches } from '../../shared/storefrontProxyAuth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+const trackLimiter = createRateLimiter({ limit: 600, windowMs: 60 * 1000 });
+
+function storefrontShop(req) {
+  return req.storefrontShop || '';
+}
 
 // GET /proxy/campaigns?shop=
-router.get('/campaigns', optionalProxyHmac, async (req, res, next) => {
+router.get('/campaigns', storefrontProxyAuth, async (req, res, next) => {
   try {
-    const shop = (req.query.shop ?? '').toString().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const shop = storefrontShop(req);
     if (!shop) return res.status(400).json({ error: 'shop required' });
     const merchant = await prisma.merchant.findFirst({
       where: {
@@ -68,37 +76,62 @@ router.get('/campaigns', optionalProxyHmac, async (req, res, next) => {
 
 // GET /proxy/recommendations?shop=&placement=product_page|cart|checkout&…
 // Optional: currentSku, productCategory, cartSubtotal, cartSkus, tags, collectionIds, context=(JSON)
-router.get('/recommendations', optionalProxyHmac, async (req, res, next) => {
+router.get('/recommendations', storefrontProxyAuth, async (req, res, next) => {
   try {
-    const shop = (req.query.shop ?? '').toString().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
-    if (!shop) return res.status(400).json({ error: 'shop required' });
-    const placement = parsePlacementType(req.query.placement);
-    if (!placement) {
-      return res.status(400).json({ error: 'placement required: product_page, cart, or checkout' });
-    }
-    const pageContext = buildContextFromProxyQuery(req.query);
-    pageContext.pageType = placement;
-    const { sets, merchantId } = await resolveRecommendationSetsForShop(shop, placement, pageContext);
-    const freqState = parseClientFrequencyState(req.query.freq_state ?? req.query.freqState);
-    const withCaps = sets.map((s) => attachResolvedFrequencyCapToRecommendationSet(s));
-    const filteredSets = freqState ? filterRecommendationSetsByFrequencyState(withCaps, freqState) : withCaps;
-    res.json({
-      recommendationSets: filteredSets,
-      placement,
-      merchantId,
-      evaluatedAt: new Date().toISOString(),
-    });
+    await sendRecommendations(req, res, req.query);
   } catch (err) {
     next(err);
   }
 });
 
-// GET /proxy/track?event=&campaign_id=&shop=
-router.get('/track', optionalProxyHmac, async (req, res, next) => {
+router.post('/recommendations', storefrontProxyAuth, async (req, res, next) => {
   try {
-    const event = (req.query.event ?? '').toString().toLowerCase();
-    const campaignId = parseInt(req.query.campaign_id, 10);
-    const shop = (req.query.shop ?? '').toString().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    if (!claimedShopMatches(storefrontShop(req), body.shop)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    await sendRecommendations(req, res, { ...req.query, ...body });
+  } catch (err) {
+    next(err);
+  }
+});
+
+async function sendRecommendations(req, res, source) {
+  const shop = storefrontShop(req);
+  if (!shop) return res.status(400).json({ error: 'shop required' });
+  const placement = parsePlacementType(source.placement);
+  if (!placement) {
+    return res.status(400).json({ error: 'placement required: product_page, cart, or checkout' });
+  }
+  const pageContext = buildContextFromProxyQuery(source);
+  pageContext.pageType = placement;
+  const { sets, merchantId } = await resolveRecommendationSetsForShop(shop, placement, pageContext);
+  const freqState = parseClientFrequencyState(source.freq_state ?? source.freqState);
+  const withCaps = sets.map((s) => attachResolvedFrequencyCapToRecommendationSet(s));
+  const filteredSets = freqState ? filterRecommendationSetsByFrequencyState(withCaps, freqState) : withCaps;
+  res.json({
+    recommendationSets: filteredSets,
+    placement,
+    merchantId,
+    evaluatedAt: new Date().toISOString(),
+  });
+}
+
+// GET /proxy/track?event=&campaign_id=&shop=
+router.get('/track', (_req, res) => {
+  res.setHeader('Allow', 'POST');
+  res.status(405).json({ error: 'Method not allowed' });
+});
+
+router.post('/track', storefrontProxyAuth, async (req, res, next) => {
+  try {
+    const source = { ...req.query, ...(req.body && typeof req.body === 'object' ? req.body : {}) };
+    if (!claimedShopMatches(storefrontShop(req), source.shop)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const event = String(source.event ?? '').toLowerCase();
+    const campaignId = parseInt(source.campaign_id ?? source.campaignId, 10);
+    const shop = storefrontShop(req);
     const allowed = ['impression', 'click', 'exit_stay', 'exit_leave'];
     if (!event || !allowed.includes(event)) {
       return res.status(400).json({ error: 'invalid event' });
@@ -107,6 +140,11 @@ router.get('/track', optionalProxyHmac, async (req, res, next) => {
       return res.status(400).json({ error: 'campaign_id required' });
     }
     if (!shop) return res.status(400).json({ error: 'shop required' });
+    const limit = trackLimiter.check(shop);
+    if (!limit.ok) {
+      res.setHeader('Retry-After', String(Math.ceil(limit.retryAfterMs / 1000)));
+      return res.status(429).json({ error: 'Too many events' });
+    }
     const campaign = await prisma.campaign.findUnique({
       where: { id: campaignId },
       include: { merchant: true },
@@ -135,15 +173,19 @@ router.get('/track', optionalProxyHmac, async (req, res, next) => {
   }
 });
 
-// POST /proxy/conversion — Shopify orders/create webhook (verified via X-Shopify-Hmac-Sha256)
-router.post('/conversion', async (req, res, next) => {
+export async function conversionWebhookHandler(req, res, next) {
   try {
-    const rawBody = req.rawBody;
-    const body = rawBody
-      ? (Buffer.isBuffer(rawBody) ? JSON.parse(rawBody.toString('utf8')) : JSON.parse(String(rawBody)))
-      : req.body ?? {};
+    if (!Buffer.isBuffer(req.body)) {
+      return res.status(401).json({ error: 'Invalid webhook HMAC' });
+    }
     if (!verifyWebhook(req)) {
       return res.status(401).json({ error: 'Invalid webhook HMAC' });
+    }
+    let body = {};
+    try {
+      body = JSON.parse(req.body.toString('utf8'));
+    } catch {
+      return res.status(400).json({ error: 'Invalid JSON' });
     }
     const orderId = body?.id?.toString() ?? body?.order_id?.toString();
     const total = parseFloat(body?.total_price ?? body?.total_price_set?.shop_money?.amount ?? 0);
@@ -151,43 +193,14 @@ router.post('/conversion', async (req, res, next) => {
     if (!orderId || !shopDomain) {
       return res.status(400).json({ error: 'Missing order id or shop' });
     }
-    const merchant = await prisma.merchant.findFirst({
-      where: {
-        OR: [
-          { shopifyDomain: shopDomain },
-          { shopifyDomain: `https://${shopDomain}` },
-        ],
-        status: 'active',
-      },
-    });
-    if (!merchant) return res.json({ received: true });
-    // Find a campaign for this merchant to attribute (e.g. most recent active or by session — here we pick first active)
-    const campaign = await prisma.campaign.findFirst({
-      where: { merchantId: merchant.id, status: 'active' },
-      orderBy: { updatedAt: 'desc' },
-    });
-    if (campaign) {
-      await prisma.campaignEvent.create({
-        data: {
-          campaignId: campaign.id,
-          eventType: 'conversion',
-          shopDomain: merchant.shopifyDomain,
-          orderId,
-          orderValue: total,
-        },
-      });
-      await prisma.campaign.update({
-        where: { id: campaign.id },
-        data: {
-          conversions: { increment: 1 },
-          revenueAttributed: { increment: total },
-        },
-      });
+    if (process.env.POPTEK_DISABLE_COMPLIANCE_SIDE_EFFECTS === '1') {
+      return res.status(200).json({ received: true });
     }
-    res.status(200).json({ received: true });
+    const result = await attributeOrderConversion(prisma, { shopDomain, orderId, total });
+    res.status(200).json({ received: true, duplicate: Boolean(result.duplicate) });
   } catch (err) {
     next(err);
   }
-});
+}
 
 export default router;

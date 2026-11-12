@@ -12,6 +12,8 @@ import {
   signShopifyWebhookBody,
 } from '../services/shopifyWebhookHmac.js';
 
+process.env.POPTEK_DISABLE_COMPLIANCE_SIDE_EFFECTS = '1';
+
 const TEST_SECRET = 'test-shopify-api-secret-for-hmac';
 const ENDPOINT = '/webhooks/compliance';
 
