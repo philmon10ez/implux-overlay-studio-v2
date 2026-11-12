@@ -133,7 +133,10 @@ test('poptekFetchCampaigns handles successful campaign response', async () => {
 
 test('overlay-engine.js bundle includes synced storefront helpers', () => {
   const dir = dirname(fileURLToPath(import.meta.url));
-  const bundle = readFileSync(join(dir, 'overlay-engine.js'), 'utf8');
+  const bundle = readFileSync(
+    join(dir, '../extensions/overlay-engine/assets/overlay-engine.js'),
+    'utf8'
+  );
   assert.match(bundle, /function poptekResolveShopDomain/);
   assert.match(bundle, /function poptekFetchCampaigns/);
   assert.match(bundle, /function poptekSelectEditorPreviewCampaign/);

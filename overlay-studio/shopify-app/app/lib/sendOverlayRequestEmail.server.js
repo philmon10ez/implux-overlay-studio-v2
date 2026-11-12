@@ -178,6 +178,7 @@ export async function sendOverlayRequestEmail({ shop, vendorName, submissionOrde
       attachments.push({
         filename: `${submissionOrderId}-request-${i + 1}-${r.imageName}`,
         content: Buffer.from(r.imageBuffer),
+        contentType: r.imageContentType || 'application/octet-stream',
       });
     }
   });

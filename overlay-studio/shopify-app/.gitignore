@@ -5,6 +5,13 @@
 node_modules/
 
 # Local Prisma / tooling cache
-# Env (keep .env.example tracked)
+# Env (keep templates tracked). .env is the existing production local file.
 .env
 !.env.example
+.env.*
+!.env.example
+.env.staging
+env/staging/.env
+*.pem
+*.key
+credentials.json

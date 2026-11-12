@@ -8,17 +8,22 @@ import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
-const mjsPath = join(root, 'extensions/overlay-engine/assets/overlay-engine-storefront.mjs');
+const mjsPath = join(root, 'storefront/overlay-engine-storefront.mjs');
+const sanitizePath = join(root, 'storefront/overlaySanitize.mjs');
 const assetPath = join(root, 'extensions/overlay-engine/assets/overlay-engine.js');
 
 const START = '/* @poptek-storefront-logic:start */';
 const END = '/* @poptek-storefront-logic:end */';
 
-let body = readFileSync(mjsPath, 'utf8');
-body = body.replace(/^\/\*\*[\s\S]*?\*\/\s*/m, '');
-body = body.replace(/^export function /gm, 'function ');
-body = body.replace(/^export async function /gm, 'async function ');
-body = body.replace(/^export const /gm, 'var ');
+function toBrowserFunctions(source) {
+  let body = source.replace(/^\/\*\*[\s\S]*?\*\/\s*/m, '');
+  body = body.replace(/^export function /gm, 'function ');
+  body = body.replace(/^export async function /gm, 'async function ');
+  body = body.replace(/^export const /gm, 'var ');
+  return body;
+}
+
+const body = `${toBrowserFunctions(readFileSync(sanitizePath, 'utf8'))}\n${toBrowserFunctions(readFileSync(mjsPath, 'utf8'))}`;
 
 const injected = `${START}\n${body}\n${END}`;
 

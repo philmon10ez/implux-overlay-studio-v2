@@ -5,6 +5,82 @@
     window.__poptekOverlayEngineStarted = true;
   }
   /* @poptek-storefront-logic:start */
+/**
+ * @param {unknown} value
+ * @param {string} fallback
+ */
+function sanitizeCssColor(value, fallback) {
+  const text = String(value ?? '').trim();
+  if (/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(text)) {
+    return text;
+  }
+  const rgb = text.match(
+    /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*(0|1|0?\.\d+)\s*)?\)$/
+  );
+  if (!rgb) return fallback;
+  const channels = [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+  if (channels.some((channel) => channel > 255)) return fallback;
+  if (rgb[4] != null && Number(rgb[4]) > 1) return fallback;
+  return text.replace(/\s+/g, '');
+}
+
+/**
+ * Opacity stored as 0..1.
+ * @param {unknown} value
+ * @param {number} fallback
+ */
+function sanitizeUnitOpacity(value, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0 || number > 1) return fallback;
+  return number;
+}
+
+/**
+ * @param {unknown} value
+ * @param {number} fallback
+ * @param {number} min
+ * @param {number} max
+ */
+function sanitizeCssLength(value, fallback, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, number));
+}
+
+/**
+ * Navigation and image URLs. javascript:, data: (except images), and credentials are rejected.
+ * @param {unknown} value
+ */
+function sanitizeNavigationUrl(value) {
+  const text = String(value ?? '').trim();
+  if (!text || text.length > 2000) return '';
+  if (/[\u0000-\u001f\u007f]/.test(text)) return '';
+  let url;
+  try {
+    url = new URL(text);
+  } catch {
+    return '';
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+  if (url.username || url.password) return '';
+  return url.toString();
+}
+
+/**
+ * @param {unknown} value
+ */
+function sanitizeImageUrl(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  if (text.length > 1500000) return '';
+  const dataImage = text.match(/^data:image\/(png|jpeg|jpg|gif|webp);base64,([a-z0-9+/=\s]+)$/i);
+  if (dataImage) {
+    if (/[\u0000-\u001f<>"']/.test(text)) return '';
+    return `data:image/${dataImage[1].toLowerCase()};base64,${dataImage[2].replace(/\s+/g, '')}`;
+  }
+  return sanitizeNavigationUrl(text);
+}
+
 /** @typedef {{ ok: true, shop: string }} PoptekShopOk */
 /** @typedef {{ ok: false, reason: string }} PoptekShopFail */
 /** @typedef {PoptekShopOk | PoptekShopFail} PoptekShopResult */
@@ -289,6 +365,33 @@ function parsePoptekCampaignsProxyPayload(json) {
 }
 
 /**
+ * Same-origin app proxy when the theme published /apps/poptek. Otherwise the absolute API.
+ * Relative paths let Shopify sign the request. The secret never enters this file.
+ * @param {{ proxyUrl?: string, appProxyPath?: unknown }} opts
+ */
+function poptekResolveCampaignProxyBase(opts) {
+  const path = String(opts.appProxyPath || '').trim();
+  if (path.startsWith('/apps/') && !path.includes('://') && !path.includes('..') && !path.includes('\\')) {
+    return path.replace(/\/$/, '');
+  }
+  return String(opts.proxyUrl || '').replace(/\/$/, '');
+}
+
+/**
+ * Beacon and fetch target for state-changing analytics. POST only.
+ * @param {string} proxyBase
+ * @param {{ event: string, campaignId: number | string, shop: string }} track
+ */
+function poptekTrackUrl(proxyBase, track) {
+  const base = String(proxyBase || '').replace(/\/$/, '');
+  const params = new URLSearchParams();
+  params.set('event', String(track.event || ''));
+  params.set('campaign_id', String(track.campaignId || ''));
+  params.set('shop', String(track.shop || ''));
+  return `${base}/track?${params.toString()}`;
+}
+
+/**
  * GET /proxy/campaigns with response validation (no silent failures in diagnostic mode).
  * @param {object} opts
  * @param {string} opts.proxyUrl
@@ -332,6 +435,27 @@ async function poptekFetchCampaigns(opts) {
 }
 
 /* @poptek-storefront-logic:end */  var PROXY_URL = 'https://api.implux.io/proxy';
+  var POPTEK_PROXY_BASE = poptekResolveCampaignProxyBase({
+    proxyUrl: PROXY_URL,
+    appProxyPath: (function () {
+      try {
+        return window.__POPTEK__ && window.__POPTEK__.appProxyPath;
+      } catch (eProxy) {
+        return '';
+      }
+    })(),
+  });
+  function poptekSendTrack(eventName, campaignId) {
+    try {
+      navigator.sendBeacon(
+        poptekTrackUrl(POPTEK_PROXY_BASE, {
+          event: eventName,
+          campaignId: campaignId,
+          shop: shop,
+        })
+      );
+    } catch (eTrack) {}
+  }
 
   function poptekGetPoptekConfig() {
     try {
@@ -909,7 +1033,7 @@ async function poptekFetchCampaigns(opts) {
   );
 
   poptekFetchCampaigns({
-    proxyUrl: PROXY_URL,
+    proxyUrl: POPTEK_PROXY_BASE,
     shop: shop,
     freqQs: impluxFreqQs,
     fetchImpl: fetch,
@@ -1006,34 +1130,47 @@ async function poptekFetchCampaigns(opts) {
     return 'product_page';
   }
 
-  function impluxRecommendationQueryFromProductMeta() {
-    var qs = '';
+  function impluxRecommendationContextFromProductMeta() {
+    var extra = {};
     try {
       var meta = window.impluxProductContext;
       if (meta && typeof meta === 'object') {
-        if (meta.sku) qs += '&currentSku=' + encodeURIComponent(String(meta.sku));
-        if (meta.productCategory) qs += '&productCategory=' + encodeURIComponent(String(meta.productCategory));
-        if (Array.isArray(meta.tags) && meta.tags.length)
-          qs += '&tags=' + encodeURIComponent(meta.tags.join(','));
-        if (Array.isArray(meta.collectionIds) && meta.collectionIds.length)
-          qs += '&collectionIds=' + encodeURIComponent(meta.collectionIds.join(','));
+        if (meta.sku) extra.currentSku = String(meta.sku);
+        if (meta.productCategory) extra.productCategory = String(meta.productCategory);
+        if (Array.isArray(meta.tags) && meta.tags.length) extra.tags = meta.tags.join(',');
+        if (Array.isArray(meta.collectionIds) && meta.collectionIds.length) {
+          extra.collectionIds = meta.collectionIds.join(',');
+        }
       }
     } catch (eMeta) {}
-    return qs;
+    return extra;
   }
 
-  function impluxFetchRecommendationsForPlacement(placement, querySuffix) {
+  function impluxFetchRecommendationsForPlacement(placement, extra) {
+    extra = extra || {};
     var fs = impluxBuildFrequencyStateQuery();
-    var freqPart = fs ? '&freq_state=' + fs : '';
+    var freqPart = fs ? '&freq_state=' + encodeURIComponent(fs) : '';
     var url =
-      PROXY_URL +
+      POPTEK_PROXY_BASE +
       '/recommendations?shop=' +
       encodeURIComponent(shop) +
       '&placement=' +
       encodeURIComponent(placement) +
-      freqPart +
-      (querySuffix || '');
-    return fetch(url)
+      freqPart;
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shop: shop,
+        placement: placement,
+        currentSku: extra.currentSku || undefined,
+        productCategory: extra.productCategory || undefined,
+        tags: extra.tags || undefined,
+        collectionIds: extra.collectionIds || undefined,
+        cartSubtotal: extra.cartSubtotal,
+        cartSkus: extra.cartSkus,
+      }),
+    })
       .then(function(r) {
         return r.json();
       })
@@ -1063,7 +1200,7 @@ async function poptekFetchCampaigns(opts) {
 
   (function impluxLoadRecommendations() {
     var placement = impluxDetectRecommendationPlacement();
-    var baseQs = impluxRecommendationQueryFromProductMeta();
+    var baseContext = impluxRecommendationContextFromProductMeta();
 
     if (placement === 'cart' || placement === 'checkout') {
       fetch('/cart.js')
@@ -1071,11 +1208,13 @@ async function poptekFetchCampaigns(opts) {
           return r.json();
         })
         .then(function(cart) {
-          var qs = baseQs;
+          var extra = {};
+          var key;
+          for (key in baseContext) {
+            if (Object.prototype.hasOwnProperty.call(baseContext, key)) extra[key] = baseContext[key];
+          }
           try {
-            if (cart && cart.total_price != null) {
-              qs += '&cartSubtotal=' + encodeURIComponent(String(cart.total_price));
-            }
+            if (cart && cart.total_price != null) extra.cartSubtotal = String(cart.total_price);
             if (cart && Array.isArray(cart.items)) {
               var skus = [];
               for (var ci = 0; ci < cart.items.length; ci++) {
@@ -1083,19 +1222,19 @@ async function poptekFetchCampaigns(opts) {
                 var csku = cit && cit.sku != null ? String(cit.sku).trim() : '';
                 if (csku) skus.push(csku);
               }
-              if (skus.length) qs += '&cartSkus=' + encodeURIComponent(skus.join(','));
+              if (skus.length) extra.cartSkus = skus.join(',');
             }
           } catch (eCart) {}
-          return impluxFetchRecommendationsForPlacement(placement, qs);
+          return impluxFetchRecommendationsForPlacement(placement, extra);
         })
         .catch(function() {
-          return impluxFetchRecommendationsForPlacement(placement, baseQs);
+          return impluxFetchRecommendationsForPlacement(placement, baseContext);
         })
         .then(impluxApplyRecommendationsPayload);
       return;
     }
 
-    impluxFetchRecommendationsForPlacement(placement, baseQs).then(impluxApplyRecommendationsPayload);
+    impluxFetchRecommendationsForPlacement(placement, baseContext).then(impluxApplyRecommendationsPayload);
   })();
 
   function initCampaign(campaign, options) {
@@ -1424,7 +1563,7 @@ async function poptekFetchCampaigns(opts) {
     });
 
     if (!poptekThemeEditor) {
-      navigator.sendBeacon(PROXY_URL + '/track?event=impression&campaign_id=' + id + '&shop=' + encodeURIComponent(shop));
+      poptekSendTrack('impression', id);
     }
   }
 
@@ -1471,7 +1610,7 @@ async function poptekFetchCampaigns(opts) {
     });
 
     if (!poptekThemeEditor) {
-      navigator.sendBeacon(PROXY_URL + '/track?event=impression&campaign_id=' + id + '&shop=' + encodeURIComponent(shop));
+      poptekSendTrack('impression', id);
     }
   }
 
@@ -1500,34 +1639,34 @@ async function poptekFetchCampaigns(opts) {
     requestAnimationFrame(function() { overlay.classList.add('os-visible'); });
 
     if (!poptekThemeEditor) {
-      navigator.sendBeacon(PROXY_URL + '/track?event=impression&campaign_id=' + id + '&shop=' + encodeURIComponent(shop));
+      poptekSendTrack('impression', id);
     }
   }
 
   function normalizeDesignConfig(d, promoCode, campaignType) {
     var exitTwoStep = isExitIntentType(campaignType) && truthyExitTwoStep(d);
     return {
-      bgColor: d.background || '#ffffff',
-      bgOpacity: d.backgroundOpacity != null ? d.backgroundOpacity : 0.95,
-      borderRadius: d.borderRadius != null ? d.borderRadius : 8,
+      bgColor: sanitizeCssColor(d.background, '#ffffff'),
+      bgOpacity: sanitizeUnitOpacity(d.backgroundOpacity != null ? d.backgroundOpacity : 0.95, 0.95),
+      borderRadius: sanitizeCssLength(d.borderRadius != null ? d.borderRadius : 8, 8, 0, 48),
       closeButton: d.showCloseButton !== false,
-      image: d.imageDataUrl || d.image || '',
+      image: sanitizeImageUrl(d.imageDataUrl || d.image || ''),
       headline: d.headline || '',
-      headlineColor: d.headlineColor || '#1f2937',
-      headlineFontSize: d.headlineSize != null ? d.headlineSize : 24,
+      headlineColor: sanitizeCssColor(d.headlineColor, '#1f2937'),
+      headlineFontSize: sanitizeCssLength(d.headlineSize != null ? d.headlineSize : 24, 24, 10, 72),
       headlineBold: d.headlineBold !== false,
       subheadline: d.subheadline || '',
-      subColor: d.subheadlineColor || '#6b7280',
-      subFontSize: d.subheadlineSize != null ? d.subheadlineSize : 16,
+      subColor: sanitizeCssColor(d.subheadlineColor, '#6b7280'),
+      subFontSize: sanitizeCssLength(d.subheadlineSize != null ? d.subheadlineSize : 16, 16, 10, 48),
       body: d.body || '',
-      bodyColor: d.bodyColor || '#4b5563',
-      bodyFontSize: d.bodySize != null ? d.bodySize : 14,
+      bodyColor: sanitizeCssColor(d.bodyColor, '#4b5563'),
+      bodyFontSize: sanitizeCssLength(d.bodySize != null ? d.bodySize : 14, 14, 10, 36),
       ctaText: d.ctaText || '',
       ctaAction: d.ctaAction || 'close',
-      ctaUrl: d.ctaUrl || '',
-      ctaBgColor: d.ctaBgColor || '#6c63ff',
-      ctaTextColor: d.ctaTextColor || '#ffffff',
-      ctaBorderRadius: d.ctaBorderRadius != null ? d.ctaBorderRadius : 8,
+      ctaUrl: sanitizeNavigationUrl(d.ctaUrl || ''),
+      ctaBgColor: sanitizeCssColor(d.ctaBgColor, '#6c63ff'),
+      ctaTextColor: sanitizeCssColor(d.ctaTextColor, '#ffffff'),
+      ctaBorderRadius: sanitizeCssLength(d.ctaBorderRadius != null ? d.ctaBorderRadius : 8, 8, 0, 48),
       dismissText: d.secondaryCtaText || '',
       promoCode: promoCode || d.promoCode || '',
       exitTwoStep: exitTwoStep,
@@ -1536,11 +1675,11 @@ async function poptekFetchCampaigns(opts) {
       exitGateBody: d.exitGateBody || '',
       exitStayCtaText: d.exitStayCtaText || 'Yes, show me the offer',
       exitLeaveCtaText: d.exitLeaveCtaText || 'No thanks, exit',
-      exitGateStayBgColor: d.exitGateStayBgColor || d.ctaBgColor || '#6c63ff',
-      exitGateStayTextColor: d.exitGateStayTextColor || d.ctaTextColor || '#ffffff',
-      exitGateLeaveColor: d.exitGateLeaveColor || '#6b7280',
+      exitGateStayBgColor: sanitizeCssColor(d.exitGateStayBgColor || d.ctaBgColor, '#6c63ff'),
+      exitGateStayTextColor: sanitizeCssColor(d.exitGateStayTextColor || d.ctaTextColor, '#ffffff'),
+      exitGateLeaveColor: sanitizeCssColor(d.exitGateLeaveColor, '#6b7280'),
       offerEyebrow: (d.exitOfferEyebrow || '').trim(),
-      offerEyebrowColor: d.exitOfferEyebrowColor || '#6c63ff',
+      offerEyebrowColor: sanitizeCssColor(d.exitOfferEyebrowColor, '#6c63ff'),
       welcomeMatInnerMaxPx:
         d.welcomeMatInnerMaxPx != null && !isNaN(Number(d.welcomeMatInnerMaxPx))
           ? Math.min(1200, Math.max(280, Number(d.welcomeMatInnerMaxPx)))
@@ -1563,7 +1702,7 @@ async function poptekFetchCampaigns(opts) {
               { label: 'Bonus offer', weight: 1, code: '' },
               { label: 'Try again', weight: 1, code: '' }
             ],
-      spinRequireEmail: !!d.spinRequireEmail,
+      spinRequireEmail: false,
       spinTitle: d.spinTitle || d.headline || 'Spin to win!',
       spinSubtitle: d.spinSubtitle || d.subheadline || '',
       spinButtonLabel: d.spinButtonLabel || d.ctaText || 'Spin the wheel'
@@ -1722,12 +1861,12 @@ async function poptekFetchCampaigns(opts) {
     var box = wrapper.querySelector('.os-box');
     wrapper.querySelector('.os-exit-stay') &&
       wrapper.querySelector('.os-exit-stay').addEventListener('click', function() {
-        navigator.sendBeacon(PROXY_URL + '/track?event=exit_stay&campaign_id=' + campaignId + '&shop=' + encodeURIComponent(shop));
+        poptekSendTrack('exit_stay', campaignId);
         if (box) box.classList.add('os-exit-show-offer');
       });
     wrapper.querySelector('.os-exit-leave') &&
       wrapper.querySelector('.os-exit-leave').addEventListener('click', function() {
-        navigator.sendBeacon(PROXY_URL + '/track?event=exit_leave&campaign_id=' + campaignId + '&shop=' + encodeURIComponent(shop));
+        poptekSendTrack('exit_leave', campaignId);
         wrapper.remove();
       });
 
@@ -1739,7 +1878,7 @@ async function poptekFetchCampaigns(opts) {
           box.classList.remove('os-exit-show-offer');
           return;
         }
-        navigator.sendBeacon(PROXY_URL + '/track?event=exit_leave&campaign_id=' + campaignId + '&shop=' + encodeURIComponent(shop));
+        poptekSendTrack('exit_leave', campaignId);
         wrapper.remove();
       });
     wrapper.querySelector('.os-backdrop') &&
@@ -1884,11 +2023,10 @@ async function poptekFetchCampaigns(opts) {
     var ctaEl = wrap.querySelector('.os-bar-cta');
     if (ctaEl) {
       ctaEl.addEventListener('click', function() {
-        navigator.sendBeacon(
-          PROXY_URL + '/track?event=click&campaign_id=' + campaignId + '&shop=' + encodeURIComponent(shop)
-        );
+        poptekSendTrack('click', campaignId);
         if (config.ctaAction === 'redirect' && config.ctaUrl) {
-          window.location.href = config.ctaUrl;
+          var safeBarUrl = sanitizeNavigationUrl(config.ctaUrl);
+          if (safeBarUrl) window.location.href = safeBarUrl;
         } else if (config.ctaAction === 'copy_promo' && config.promoCode) {
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(config.promoCode);
@@ -1943,9 +2081,6 @@ async function poptekFetchCampaigns(opts) {
           escapeHtml(config.spinSubtitle) +
           '</p>'
         : '') +
-      (config.spinRequireEmail
-        ? '<input type="email" class="os-spin-email" placeholder="you@example.com" autocomplete="email" />'
-        : '') +
       '<div class="os-wheel-wrap">' +
       '<div class="os-wheel-pointer" aria-hidden="true"></div>' +
       '<div class="os-wheel-disk" style="background:' +
@@ -1991,7 +2126,6 @@ async function poptekFetchCampaigns(opts) {
     var resultBody = wrapper.querySelector('.os-spin-result-body');
     var codeEl = wrapper.querySelector('.os-spin-code');
     var copyBtn = wrapper.querySelector('.os-spin-copy');
-    var emailIn = wrapper.querySelector('.os-spin-email');
     var spun = false;
 
     function closeAll() {
@@ -2011,9 +2145,7 @@ async function poptekFetchCampaigns(opts) {
         if (code && navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(code);
         }
-        navigator.sendBeacon(
-          PROXY_URL + '/track?event=click&campaign_id=' + campaignId + '&shop=' + encodeURIComponent(shop)
-        );
+        poptekSendTrack('click', campaignId);
       });
     }
 
@@ -2021,19 +2153,10 @@ async function poptekFetchCampaigns(opts) {
     if (goBtn && disk) {
       goBtn.addEventListener('click', function() {
         if (spun) return;
-        if (config.spinRequireEmail && emailIn) {
-          var em = (emailIn.value || '').trim();
-          if (!em || em.indexOf('@') < 1) {
-            emailIn.focus();
-            return;
-          }
-        }
         spun = true;
         goBtn.disabled = true;
         var picked = pickWeightedSpinSegment(segments);
-        navigator.sendBeacon(
-          PROXY_URL + '/track?event=click&campaign_id=' + campaignId + '&shop=' + encodeURIComponent(shop)
-        );
+        poptekSendTrack('click', campaignId);
         var per = 360 / n;
         var centerAngle = picked.index * per + per / 2;
         var mod = (360 - centerAngle) % 360;
@@ -2072,8 +2195,12 @@ async function poptekFetchCampaigns(opts) {
     for (var i = 0; i < ctas.length; i++) {
       (function(btn) {
         btn.addEventListener('click', function() {
-          navigator.sendBeacon(PROXY_URL + '/track?event=click&campaign_id=' + campaignId + '&shop=' + encodeURIComponent(shop));
-          if (config.ctaAction === 'redirect' && config.ctaUrl) window.location.href = config.ctaUrl;
+          poptekSendTrack('click', campaignId);
+          poptekSendTrack('click', campaignId);
+          if (config.ctaAction === 'redirect' && config.ctaUrl) {
+            var safeOfferUrl = sanitizeNavigationUrl(config.ctaUrl);
+            if (safeOfferUrl) window.location.href = safeOfferUrl;
+          }
           else if (config.ctaAction === 'copy_promo' && config.promoCode) {
             if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(config.promoCode);
           }
@@ -2139,7 +2266,6 @@ async function poptekFetchCampaigns(opts) {
       '.os-wheel-wrap{position:relative;width:220px;height:220px;margin:16px auto}' +
       '.os-wheel-disk{width:100%;height:100%;border-radius:50%;box-shadow:inset 0 0 0 6px rgba(255,255,255,.25);transition:transform 0s}' +
       '.os-wheel-pointer{position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:18px solid #1f2937;z-index:2}' +
-      '.os-spin-email{display:block;width:100%;margin:12px 0;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:15px;box-sizing:border-box}' +
       '.os-spin-title{margin:0 0 8px;font-size:22px;font-weight:700;text-align:center;line-height:1.25}' +
       '.os-spin-sub{margin:0 0 8px;font-size:14px;text-align:center;line-height:1.45}' +
       '.os-spin-go{display:block;width:100%;padding:14px;margin-top:8px;border:0;cursor:pointer;font-size:16px;font-weight:600}' +

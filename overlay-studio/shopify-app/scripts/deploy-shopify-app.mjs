@@ -47,7 +47,7 @@ try {
   console.error(String(err?.message || err));
   if (target === 'staging') {
     console.error(
-      'Set POPTEK_PROXY_URL=https://api-staging.implux.io/proxy before staging extension deploy (Phase 2B).'
+      'Set POPTEK_PROXY_URL=https://implux-overlay-studio-v2-staging.up.railway.app/proxy before staging extension deploy.'
     );
   }
   process.exit(1);

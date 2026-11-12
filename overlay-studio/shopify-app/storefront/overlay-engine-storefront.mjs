@@ -287,6 +287,33 @@ export function parsePoptekCampaignsProxyPayload(json) {
 }
 
 /**
+ * Same-origin app proxy when the theme published /apps/poptek. Otherwise the absolute API.
+ * Relative paths let Shopify sign the request. The secret never enters this file.
+ * @param {{ proxyUrl?: string, appProxyPath?: unknown }} opts
+ */
+export function poptekResolveCampaignProxyBase(opts) {
+  const path = String(opts.appProxyPath || '').trim();
+  if (path.startsWith('/apps/') && !path.includes('://') && !path.includes('..') && !path.includes('\\')) {
+    return path.replace(/\/$/, '');
+  }
+  return String(opts.proxyUrl || '').replace(/\/$/, '');
+}
+
+/**
+ * Beacon and fetch target for state-changing analytics. POST only.
+ * @param {string} proxyBase
+ * @param {{ event: string, campaignId: number | string, shop: string }} track
+ */
+export function poptekTrackUrl(proxyBase, track) {
+  const base = String(proxyBase || '').replace(/\/$/, '');
+  const params = new URLSearchParams();
+  params.set('event', String(track.event || ''));
+  params.set('campaign_id', String(track.campaignId || ''));
+  params.set('shop', String(track.shop || ''));
+  return `${base}/track?${params.toString()}`;
+}
+
+/**
  * GET /proxy/campaigns with response validation (no silent failures in diagnostic mode).
  * @param {object} opts
  * @param {string} opts.proxyUrl

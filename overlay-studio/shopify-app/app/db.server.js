@@ -1,4 +1,7 @@
 import { PrismaClient } from '@prisma/client';
+import { applyStagingProcessGuard } from './lib/stagingProcessGuard.server.js';
+
+applyStagingProcessGuard();
 
 const globalForPrisma = globalThis;
 

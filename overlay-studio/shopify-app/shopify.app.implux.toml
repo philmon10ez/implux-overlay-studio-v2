@@ -14,7 +14,7 @@ compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"
 uri = "/webhooks/compliance"
 
 [access_scopes]
-scopes = "read_products,write_script_tags,read_orders,write_themes,read_themes"
+scopes = "read_orders,read_themes"
 optional_scopes = []
 use_legacy_install_flow = false
 

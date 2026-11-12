@@ -9,6 +9,9 @@
     if (typeof w.__POPTEK__.shop === 'undefined') {
       w.__POPTEK__.shop = {{ shop.permanent_domain | json }};
     }
+    if (typeof w.__POPTEK__.appProxyPath === 'undefined') {
+      w.__POPTEK__.appProxyPath = '/apps/poptek';
+    }
   })();
 </script>
 {{ 'overlay-engine.js' | asset_url | script_tag }}

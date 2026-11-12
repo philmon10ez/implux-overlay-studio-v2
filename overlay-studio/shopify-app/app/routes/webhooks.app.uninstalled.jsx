@@ -14,6 +14,13 @@ export const action = async ({ request }) => {
     await prisma.session.deleteMany({ where: { shop: shopNorm } }).catch((e) => {
       console.warn('[Implux] session cleanup after uninstall failed:', e?.message || e);
     });
+    await prisma.$executeRaw`
+      DELETE FROM "OverlaySubmission"
+      WHERE lower("shopDomain") = ${shopNorm}
+         OR lower("shopDomain") = ${`https://${shopNorm}`}
+    `.catch((e) => {
+      console.warn('[Implux] overlay submission cleanup after uninstall failed');
+    });
   }
 
   return new Response(null, { status: 200 });

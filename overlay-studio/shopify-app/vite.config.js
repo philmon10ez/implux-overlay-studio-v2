@@ -1,9 +1,15 @@
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { vitePlugin as remix } from '@remix-run/dev';
 import { defineConfig } from 'vite';
 
+const appRoot = dirname(fileURLToPath(import.meta.url));
+const stagingLocal = process.env.POPTEK_STAGING_LOCAL === '1';
 const host = new URL(process.env.SHOPIFY_APP_URL || process.env.APP_URL || 'http://localhost').hostname;
 
 export default defineConfig({
+  // Staging dev must not load the production .env in this directory.
+  envDir: stagingLocal ? join(appRoot, 'env', 'staging') : appRoot,
   // Nodemailer is CommonJS-heavy; load from node_modules at runtime, not bundled into SSR.
   ssr: {
     external: ['nodemailer'],

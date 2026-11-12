@@ -3,7 +3,7 @@
  * Build overlay-engine.js with an explicit proxy URL (theme extensions cannot read runtime env).
  *
  * Usage:
- *   POPTEK_PROXY_URL=https://api-staging.implux.io/proxy node scripts/build-overlay-engine-asset.mjs staging
+ *   POPTEK_PROXY_URL=https://implux-overlay-studio-v2-staging.up.railway.app/proxy node scripts/build-overlay-engine-asset.mjs staging
  *   POPTEK_PROXY_URL=https://api.implux.io/proxy node scripts/build-overlay-engine-asset.mjs production
  */
 import { readFileSync, writeFileSync } from 'node:fs';

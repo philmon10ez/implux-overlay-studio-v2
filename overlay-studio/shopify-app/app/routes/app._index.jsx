@@ -11,6 +11,7 @@ import OverlayRequestForm from '../components/OverlayRequestForm.jsx';
 import ShopCampaignList from '../components/ShopCampaignList.jsx';
 import SetupChecklist from '../components/SetupChecklist.jsx';
 import { syncMerchantFromSession } from '../lib/merchantSync.server.js';
+import { detectImageSignature, imageContentType } from '../lib/imageSignature.server.js';
 import {
   buildActivateAppId,
   buildThemeEditorEmbedUrl,
@@ -171,8 +172,19 @@ export const action = async ({ request }) => {
         );
       }
       const buf = Buffer.from(await file.arrayBuffer());
+      const kind = detectImageSignature(buf);
+      if (!kind) {
+        return json(
+          {
+            ok: false,
+            error: `Request ${i + 1}: Images must be JPEG, PNG, or WebP files.`,
+          },
+          { status: 400 }
+        );
+      }
       row.imageBuffer = buf;
       row.imageName = safeFilename(file.name);
+      row.imageContentType = imageContentType(kind);
     }
 
     rows.push(row);
