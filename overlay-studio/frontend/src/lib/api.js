@@ -1,6 +1,6 @@
 /**
- * Fetch wrapper: base URL from VITE_API_URL, credentials: 'include' for cookie auth.
- * Missing or unsafe configuration fails at module load (no production fallback).
+ * Fetch wrapper: credentials include the staff cookie.
+ * Production calls https://api.implux.io. Staging and preview call same-origin /api.
  */
 import { resolveApiBaseUrl } from './appEnv.js';
 

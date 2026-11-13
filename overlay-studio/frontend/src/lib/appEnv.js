@@ -14,6 +14,10 @@ export function resolveAppEnv() {
 
   if (!raw) {
     if (import.meta.env.DEV) return 'development';
+    // The live admin project was built before VITE_APP_ENV existed. A production
+    // Vite build with no explicit env keeps calling https://api.implux.io.
+    // Staging and preview must set VITE_APP_ENV so they cannot take this path.
+    if (import.meta.env.PROD) return 'production';
     throw new Error(
       'VITE_APP_ENV is required for production, staging, and preview builds. ' +
         'Set VITE_APP_ENV to development | preview | staging | production.'
@@ -33,9 +37,8 @@ export function resolveApiBaseUrl() {
   const appEnv = resolveAppEnv();
   const url = String(import.meta.env.VITE_API_URL || '').trim();
 
-  // Staging/preview: always call same-origin `/api`. Vercel rewrites those paths to the
-  // Railway staging backend so the JWT cookie is first-party. Chrome blocks third-party
-  // cookies across vercel.app → railway.app even with SameSite=None.
+  // Staging/preview call same-origin /api. Deploy that mode only with the staging
+  // Vercel project. This production file rewrites /api to https://api.implux.io.
   if (appEnv === 'staging' || appEnv === 'preview') {
     if (url.includes(PRODUCTION_API_HOST)) {
       throw new Error(
@@ -45,20 +48,20 @@ export function resolveApiBaseUrl() {
     return '';
   }
 
+  if (appEnv === 'production') {
+    if (!url) return `https://${PRODUCTION_API_HOST}`;
+    if (!url.includes(PRODUCTION_API_HOST)) {
+      throw new Error(
+        `VITE_API_URL must target "${PRODUCTION_API_HOST}" when VITE_APP_ENV=production.`
+      );
+    }
+    return url.replace(/\/$/, '');
+  }
+
   if (!url) {
     throw new Error(
       `VITE_API_URL is required when VITE_APP_ENV=${appEnv}. ` +
         'No silent fallback to the production API is permitted.'
-    );
-  }
-
-  if (appEnv === 'development') {
-    return url.replace(/\/$/, '');
-  }
-
-  if (appEnv === 'production' && !url.includes(PRODUCTION_API_HOST)) {
-    console.warn(
-      `[api] VITE_APP_ENV=production but VITE_API_URL does not include "${PRODUCTION_API_HOST}". Verify configuration.`
     );
   }
 
