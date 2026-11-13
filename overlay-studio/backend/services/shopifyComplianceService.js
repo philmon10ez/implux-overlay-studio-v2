@@ -4,7 +4,7 @@
  * cannot delete another shop's rows.
  */
 import { PrismaClient } from '@prisma/client';
-import { normalizeProxyShop } from '../../shared/storefrontProxyAuth.js';
+import { normalizeProxyShop } from '../shared/storefrontProxyAuth.js';
 
 const prisma = new PrismaClient();
 

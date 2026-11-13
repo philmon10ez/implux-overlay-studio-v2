@@ -5,14 +5,14 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
-import { resolveAppEnv } from '../../shared/appEnv.js';
+import { resolveAppEnv } from '../shared/appEnv.js';
 import { clientAddress } from '../lib/rateLimit.js';
 import {
   STAFF_COOKIE_MAX_AGE_MS,
   authenticateStaffToken,
   signStaffToken,
 } from '../lib/staffAuth.js';
-import { scrubErrorForLog } from '../../shared/safeLog.js';
+import { scrubErrorForLog } from '../shared/safeLog.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();

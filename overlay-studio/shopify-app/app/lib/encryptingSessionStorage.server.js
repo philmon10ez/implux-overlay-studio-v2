@@ -4,7 +4,7 @@
  * A ciphertext row cannot be loaded if its key is missing; the merchant signs in again.
  */
 import { PrismaSessionStorage } from '@shopify/shopify-app-session-storage-prisma';
-import { decryptFromStorage, encryptForStorage, TokenCryptoError } from '../../../shared/tokenCipher.js';
+import { decryptFromStorage, encryptForStorage, TokenCryptoError } from '../../shared/tokenCipher.js';
 
 function withStoredSecrets(session, transform) {
   if (!session) return session;

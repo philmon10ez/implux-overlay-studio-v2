@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {
   authorizeStorefrontRequest,
   signAppProxyQuery,
-} from '../../shared/storefrontProxyAuth.js';
-import { secretsEqual } from '../../shared/timingSafeSecret.js';
-import { validateDatabaseUrl } from '../../shared/databaseGuard.js';
-import { resolveAppEnv } from '../../shared/appEnv.js';
+} from '../shared/storefrontProxyAuth.js';
+import { secretsEqual } from '../shared/timingSafeSecret.js';
+import { validateDatabaseUrl } from '../shared/databaseGuard.js';
+import { resolveAppEnv } from '../shared/appEnv.js';
 
 const SECRET = 'app-proxy-test-secret';
 

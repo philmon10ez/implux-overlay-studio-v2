@@ -4,7 +4,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import auth from '../middleware/auth.js';
-import { encryptForStorage } from '../../shared/tokenCipher.js';
+import { encryptForStorage } from '../shared/tokenCipher.js';
 import {
   authenticate,
   getAdvertisers,

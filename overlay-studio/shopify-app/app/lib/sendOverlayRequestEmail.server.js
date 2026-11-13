@@ -10,7 +10,7 @@ import {
   URGENCY_OPTIONS,
   labelByValue,
 } from './overlayRequestOptions.js';
-import { isEmailEnabled } from '../../../shared/appEnv.js';
+import { isEmailEnabled } from '../../shared/appEnv.js';
 
 export const DEFAULT_OVERLAY_REQUEST_RECIPIENTS = ['matth@implux.io', 'philip.m@implux.io'];
 

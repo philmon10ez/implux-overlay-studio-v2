@@ -23,7 +23,7 @@ import {
   attachResolvedFrequencyCapToRecommendationSet,
 } from '../lib/frequencyCap.js';
 import { createRateLimiter } from '../lib/rateLimit.js';
-import { claimedShopMatches } from '../../shared/storefrontProxyAuth.js';
+import { claimedShopMatches } from '../shared/storefrontProxyAuth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();

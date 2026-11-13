@@ -1,12 +1,12 @@
 /**
  * Shopify Remix app startup validation.
  */
-import { resolveAppEnv } from '../../../shared/appEnv.js';
-import { validateDatabaseUrl } from '../../../shared/databaseGuard.js';
+import { resolveAppEnv } from '../../shared/appEnv.js';
+import { validateDatabaseUrl } from '../../shared/databaseGuard.js';
 import {
   validateImpluxBackendUrl,
   validateShopifyAppPublicUrl,
-} from '../../../shared/serviceUrlGuard.js';
+} from '../../shared/serviceUrlGuard.js';
 
 let validated = false;
 

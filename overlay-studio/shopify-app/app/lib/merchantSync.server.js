@@ -1,7 +1,7 @@
 /**
  * Server-only merchant sync to Implux backend (never import from client components).
  */
-import { PRODUCTION_API_HOST, resolveAppEnv } from '../../../shared/appEnv.js';
+import { PRODUCTION_API_HOST, resolveAppEnv } from '../../shared/appEnv.js';
 
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 const DEFAULT_MAX_ATTEMPTS = 3;

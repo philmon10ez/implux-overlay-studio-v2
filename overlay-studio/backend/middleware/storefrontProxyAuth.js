@@ -8,7 +8,7 @@
 import {
   authorizeStorefrontRequest,
   claimedShopMatches,
-} from '../../shared/storefrontProxyAuth.js';
+} from '../shared/storefrontProxyAuth.js';
 
 export default function storefrontProxyAuth(req, res, next) {
   const decision = authorizeStorefrontRequest({ query: req.query, env: process.env });

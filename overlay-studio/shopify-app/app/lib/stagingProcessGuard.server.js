@@ -6,7 +6,7 @@ import {
   PRODUCTION_ADMIN_HOST,
   PRODUCTION_API_HOST,
   PRODUCTION_SHOPIFY_APP_HOST,
-} from '../../../shared/appEnv.js';
+} from '../../shared/appEnv.js';
 
 export const STAGING_LOCAL_SENTINEL = 'POPTEK_STAGING_LOCAL';
 export const STAGING_SHOPIFY_CLIENT_ID = '786f52ea5cd6c4e9c95a835dfecd2ecb';

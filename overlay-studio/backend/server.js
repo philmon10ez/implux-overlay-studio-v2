@@ -6,7 +6,7 @@ import 'dotenv/config';
 import cron from 'node-cron';
 import { createApp } from './app.js';
 import { syncTransactions } from './services/rakutenService.js';
-import { isRakutenSyncEnabled } from '../shared/appEnv.js';
+import { isRakutenSyncEnabled } from './shared/appEnv.js';
 import { validateBackendStartup } from './lib/startupValidation.js';
 
 validateBackendStartup();

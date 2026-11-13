@@ -6,7 +6,7 @@ import {
   encryptForStorage,
   encryptionConfigured,
   TokenCryptoError,
-} from '../../shared/tokenCipher.js';
+} from '../shared/tokenCipher.js';
 
 function envWithKey(extra = {}) {
   const key = crypto.randomBytes(32).toString('base64');

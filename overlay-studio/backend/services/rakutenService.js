@@ -2,7 +2,7 @@
  * Rakuten Advertising API: auth, advertisers, transactions, sync to DB.
  */
 import { PrismaClient } from '@prisma/client';
-import { decryptFromStorage } from '../../shared/tokenCipher.js';
+import { decryptFromStorage } from '../shared/tokenCipher.js';
 
 const prisma = new PrismaClient();
 const BASE = 'https://api.rakutenadvertising.com';

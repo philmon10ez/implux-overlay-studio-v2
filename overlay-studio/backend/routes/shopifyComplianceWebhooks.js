@@ -3,7 +3,7 @@
  * Shopify mandatory compliance webhooks (GDPR).
  */
 import { verifyShopifyWebhookHmac } from '../services/shopifyWebhookHmac.js';
-import { secretsEqual } from '../../shared/timingSafeSecret.js';
+import { secretsEqual } from '../shared/timingSafeSecret.js';
 import {
   isComplianceTopic,
   isDuplicateWebhookDelivery,

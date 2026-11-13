@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { validateThemeExtensionProxyUrl } from '../../shared/serviceUrlGuard.js';
+import { validateThemeExtensionProxyUrl } from '../shared/serviceUrlGuard.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const assetPath = join(__dirname, '../extensions/overlay-engine/assets/overlay-engine.js');

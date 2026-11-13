@@ -18,10 +18,10 @@ import productsRoutes from './routes/products.js';
 import recommendationSetsRoutes from './routes/recommendationSets.js';
 import recommendationTargetingRoutes from './routes/recommendationTargeting.js';
 import conversionIntelligenceRoutes from './routes/conversionIntelligence.js';
-import { resolveAppEnv, resolveAdminCorsOrigins } from '../shared/appEnv.js';
+import { resolveAppEnv, resolveAdminCorsOrigins } from './shared/appEnv.js';
 import { securityHeaders, privateCache } from './middleware/securityHeaders.js';
 import { conversionWebhookHandler } from './routes/proxy.js';
-import { scrubErrorForLog } from '../shared/safeLog.js';
+import { scrubErrorForLog } from './shared/safeLog.js';
 
 /** Admin dashboard origins (cookie auth + CORS). Comma-separated in FRONTEND_URL. */
 function normalizeOrigin(o) {

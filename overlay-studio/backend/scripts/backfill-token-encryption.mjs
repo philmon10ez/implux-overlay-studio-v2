@@ -6,7 +6,7 @@
  * Does not print secret values.
  */
 import { PrismaClient } from '@prisma/client';
-import { encryptForStorage, encryptionConfigured, isCiphertext } from '../../shared/tokenCipher.js';
+import { encryptForStorage, encryptionConfigured, isCiphertext } from '../shared/tokenCipher.js';
 
 const appEnv = String(process.env.APP_ENV || '').trim().toLowerCase();
 if (!encryptionConfigured()) {

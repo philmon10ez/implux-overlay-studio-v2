@@ -9,7 +9,7 @@ import { createApp } from '../app.js';
 import { signShopifyWebhookBody } from '../services/shopifyWebhookHmac.js';
 import shopifySyncRoutes from '../routes/shopifySync.js';
 import { resolveOrderWebhookShopDomain } from '../lib/orderWebhookShopDomain.js';
-import { PRODUCTION_API_HOST } from '../../shared/appEnv.js';
+import { PRODUCTION_API_HOST } from '../shared/appEnv.js';
 import { assertSafeBackendUrlForSync } from '../../shopify-app/app/lib/merchantSync.server.js';
 
 process.env.POPTEK_DISABLE_COMPLIANCE_SIDE_EFFECTS = '1';

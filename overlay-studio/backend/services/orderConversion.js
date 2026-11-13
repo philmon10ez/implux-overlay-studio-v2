@@ -2,7 +2,7 @@
  * Attribute an orders/create webhook once per shop and order id.
  * Uses the existing ShopifyWebhookDelivery table so no new migration is required to boot.
  */
-import { normalizeProxyShop } from '../../shared/storefrontProxyAuth.js';
+import { normalizeProxyShop } from '../shared/storefrontProxyAuth.js';
 
 /**
  * @param {import('@prisma/client').PrismaClient} db

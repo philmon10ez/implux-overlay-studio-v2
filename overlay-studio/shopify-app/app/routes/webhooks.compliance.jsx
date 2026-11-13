@@ -1,5 +1,5 @@
 import { authenticate } from '../shopify.server.js';
-import { PRODUCTION_API_HOST, resolveAppEnv } from '../../../shared/appEnv.js';
+import { PRODUCTION_API_HOST, resolveAppEnv } from '../../shared/appEnv.js';
 
 const COMPLIANCE_TOPICS = new Set([
   'CUSTOMERS_DATA_REQUEST',
