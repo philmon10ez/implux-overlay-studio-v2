@@ -18,6 +18,7 @@ import {
   poptekEditorPreviewShowTarget,
   poptekBuildCampaignFetchFreqQs,
   normalizePoptekCampaignType,
+  poptekResolveCampaignProxyBase,
 } from './overlay-engine-storefront.mjs';
 
 test('normalizePoptekShopDomain strips protocol and path', () => {
@@ -140,6 +141,10 @@ test('overlay-engine.js bundle includes synced storefront helpers', () => {
   assert.match(bundle, /function poptekResolveShopDomain/);
   assert.match(bundle, /function poptekFetchCampaigns/);
   assert.match(bundle, /function poptekSelectEditorPreviewCampaign/);
+  assert.match(bundle, /Shopify\.designMode === true/);
+  assert.match(bundle, /function poptekResolveCampaignProxyBase/);
+  assert.match(bundle, /https:\/\/api\.implux\.io\/proxy/);
+  assert.equal(bundle.includes('implux-overlay-studio-v2-staging'), false);
   assert.match(bundle, /window\.__poptekOverlayEngineStarted/);
   assert.match(bundle, /editorInstant/);
   assert.match(bundle, /window\.__POPTEK__|poptekGetPoptekConfig/);
@@ -223,4 +228,31 @@ test('poptekBuildCampaignFetchFreqQs omits freq_state in Theme Editor only', () 
   assert.equal(poptekBuildCampaignFetchFreqQs(true, 'abc123'), '');
   assert.equal(poptekBuildCampaignFetchFreqQs(false, 'abc123'), '&freq_state=abc123');
   assert.equal(poptekBuildCampaignFetchFreqQs(false, ''), '');
+});
+
+test('poptekResolveCampaignProxyBase uses the app proxy when the embed publishes one', () => {
+  assert.equal(
+    poptekResolveCampaignProxyBase({
+      proxyUrl: 'https://api.implux.io/proxy',
+      appProxyPath: '/apps/poptek',
+    }),
+    '/apps/poptek'
+  );
+});
+
+test('poptekResolveCampaignProxyBase falls back to the absolute production proxy', () => {
+  assert.equal(
+    poptekResolveCampaignProxyBase({
+      proxyUrl: 'https://api.implux.io/proxy/',
+      appProxyPath: '',
+    }),
+    'https://api.implux.io/proxy'
+  );
+  assert.equal(
+    poptekResolveCampaignProxyBase({
+      proxyUrl: 'https://api.implux.io/proxy',
+      appProxyPath: 'https://evil.example/apps/poptek',
+    }),
+    'https://api.implux.io/proxy'
+  );
 });

@@ -217,7 +217,7 @@ From the **shopify-app** directory (or repo root with correct config):
    shopify app deploy
    ```
 
-This deploys the **overlay-engine** theme app extension so merchants can enable the “Overlay Studio” app embed in the theme editor.
+This deploys the **overlay-engine** theme app extension so merchants can enable the “Poptek by Implux” app embed in the theme editor.
 
 Before that, ensure:
 

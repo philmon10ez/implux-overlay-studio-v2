@@ -57,7 +57,7 @@ Redeploy shopify-app. After install, merchants are redirected to the theme edito
 
 1. **Shopify Partners** → **Apps** → your app → **Test on development store** (or **Select store**).
 2. Complete OAuth. Your dev store should appear under **Merchants** in the Implux API (and in campaign merchant dropdown).
-3. If prompted, **Themes → Customize → App embeds** → enable **Implux / overlay-engine**.
+3. If prompted, **Themes → Customize → App embeds** → enable **Poptek by Implux**.
 4. Or open **Online Store → Themes → Customize → App embeds** and enable the embed.
 
 ---

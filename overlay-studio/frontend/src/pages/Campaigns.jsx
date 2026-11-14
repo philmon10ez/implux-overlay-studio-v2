@@ -31,8 +31,7 @@ function ShopifyTestLauncher() {
           install.
         </li>
         <li>
-          <strong>Enable embed:</strong> Online Store → Themes → Customize → App embeds → turn on Poptek / overlay
-          engine.
+          <strong>Enable embed:</strong> Online Store → Themes → Customize → App embeds → turn on Poptek by Implux.
         </li>
         <li>
           <strong>Campaigns:</strong> Pick your dev store as merchant → New Campaign → Publish (active).
