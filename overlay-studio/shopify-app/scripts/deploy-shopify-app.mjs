@@ -69,11 +69,15 @@ if (buildExt.status !== 0) {
   process.exit(buildExt.status ?? 1);
 }
 
-console.log(`[deploy] Running: shopify app deploy --config ${configFile} --force`);
+const deployFlags =
+  target === 'production'
+    ? ['--allow-updates']
+    : ['--force'];
+console.log(`[deploy] Running: shopify app deploy --config ${configFile} ${deployFlags.join(' ')}`);
 
 const deploy = spawnSync(
   'shopify',
-  ['app', 'deploy', '--config', configFile, '--force'],
+  ['app', 'deploy', '--config', configFile, ...deployFlags],
   { cwd: shopifyAppRoot, stdio: 'inherit', shell: true }
 );
 

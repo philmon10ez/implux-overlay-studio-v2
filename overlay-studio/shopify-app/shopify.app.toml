@@ -36,3 +36,10 @@ embedded = false
 
 [build]
 automatically_update_urls_on_dev = false
+
+# Required by the theme extension. Liquid sets /apps/poptek. Keep this identical
+# to shopify.app.production.toml so a default CLI deploy cannot drop the proxy.
+[app_proxy]
+url = "https://api.implux.io/proxy"
+prefix = "apps"
+subpath = "poptek"

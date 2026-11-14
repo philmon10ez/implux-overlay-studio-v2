@@ -35,13 +35,19 @@ test('production extension asset does not point at staging and has no test modul
 
 test('requested Shopify scopes omit theme and script-tag writes', () => {
   const production = readFileSync(join(root, '../shopify.app.production.toml'), 'utf8');
+  const defaultConfig = readFileSync(join(root, '../shopify.app.toml'), 'utf8');
+  const legacyConfig = readFileSync(join(root, '../shopify.app.implux.toml'), 'utf8');
   const staging = readFileSync(join(root, '../shopify.app.staging.toml'), 'utf8');
-  for (const toml of [production, staging]) {
+  for (const toml of [production, defaultConfig, legacyConfig, staging]) {
     assert.match(toml, /scopes = "read_orders,read_themes"/);
     assert.equal(toml.includes('write_themes'), false);
     assert.equal(toml.includes('write_script_tags'), false);
     assert.match(toml, /\[app_proxy\]/);
   }
-  assert.match(production, /url = "https:\/\/api\.implux\.io\/proxy"/);
+  for (const toml of [production, defaultConfig, legacyConfig]) {
+    assert.match(toml, /url = "https:\/\/api\.implux\.io\/proxy"/);
+    assert.match(toml, /subpath = "poptek"/);
+    assert.equal(toml.includes('implux-overlay-studio-v2-staging'), false);
+  }
   assert.equal(staging.includes('https://api.implux.io/proxy'), false);
 });
