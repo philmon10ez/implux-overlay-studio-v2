@@ -14,10 +14,10 @@ import { syncMerchantFromSession } from '../lib/merchantSync.server.js';
 import { detectImageSignature, imageContentType } from '../lib/imageSignature.server.js';
 import {
   buildActivateAppId,
-  buildThemeEditorEmbedUrl,
   fetchAppEmbedStatus,
   fetchMerchantSyncStatus,
 } from '../lib/onboarding.server.js';
+import { buildThemeEditorNavigation } from '../lib/themeEditorNavigation.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://your-overlay-studio.vercel.app';
 
@@ -274,7 +274,7 @@ export const loader = async ({ request }) => {
     apiKey: process.env.SHOPIFY_API_KEY,
     themeExtensionIdEnv: process.env.THEME_EXTENSION_ID,
   });
-  const themeEditorUrl = buildThemeEditorEmbedUrl(shopLabel, activateAppId);
+  const themeEditor = buildThemeEditorNavigation(shopLabel, activateAppId);
 
   const readyForOverlayRequests = storeConnected && merchantSync.synced;
 
@@ -332,7 +332,7 @@ export const loader = async ({ request }) => {
       merchantSynced: merchantSync.synced,
       embedStatus,
       readyForOverlayRequests,
-      themeEditorUrl,
+      themeEditor,
     },
   };
 };
@@ -372,7 +372,7 @@ export default function AppIndex() {
                   merchantSynced={onboarding.merchantSynced}
                   embedStatus={onboarding.embedStatus}
                   readyForOverlayRequests={onboarding.readyForOverlayRequests}
-                  themeEditorUrl={onboarding.themeEditorUrl}
+                  themeEditor={onboarding.themeEditor}
                 />
               </Layout.Section>
               <Layout.Section>

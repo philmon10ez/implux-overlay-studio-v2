@@ -7,7 +7,7 @@
 export const APP_EMBED_BLOCK_HANDLE = 'app-embed';
 
 /** Schema display name in theme editor (not used for activateAppId). */
-export const APP_EMBED_DISPLAY_NAME = 'Implux';
+export const APP_EMBED_DISPLAY_NAME = 'Poptek by Implux';
 
 /**
  * Build activateAppId for theme editor deep linking.

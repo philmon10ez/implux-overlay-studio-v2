@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   APP_EMBED_BLOCK_HANDLE,
+  APP_EMBED_DISPLAY_NAME,
   buildActivateAppId,
   buildThemeEditorEmbedUrl,
   detectAppEmbedFromSettingsData,
@@ -10,6 +11,10 @@ import {
 
 test('APP_EMBED_BLOCK_HANDLE matches blocks/app-embed.liquid filename', () => {
   assert.equal(APP_EMBED_BLOCK_HANDLE, 'app-embed');
+});
+
+test('app embed display name is Poptek by Implux', () => {
+  assert.equal(APP_EMBED_DISPLAY_NAME, 'Poptek by Implux');
 });
 
 test('buildActivateAppId prefers api_key/block_handle per Shopify docs', () => {

@@ -1,4 +1,5 @@
 import { Badge, BlockStack, Button, Card, InlineStack, List, Text } from '@shopify/polaris';
+import { openThemeEditorNavigation } from '../lib/themeEditorNavigation.js';
 
 /**
  * @typedef {'complete' | 'attention' | 'incomplete' | 'unknown'} StepVisual
@@ -26,35 +27,35 @@ function badgeForState(state) {
  * @param {boolean} props.merchantSynced
  * @param {'enabled' | 'disabled' | 'not_configured' | 'unavailable'} props.embedStatus
  * @param {boolean} props.readyForOverlayRequests
- * @param {string | null} props.themeEditorUrl
+ * @param {{ shopDomain: string, adminPath: string, fallbackUrl: string } | null} props.themeEditor
  */
 export default function SetupChecklist({
   storeConnected,
   merchantSynced,
   embedStatus,
   readyForOverlayRequests,
-  themeEditorUrl,
+  themeEditor,
 }) {
   /** @type {StepVisual} */
   let embedVisual = 'incomplete';
   let embedDetail =
-    'Turn on the Implux app embed in your theme and save — overlays appear on your storefront after that.';
+    'Turn on the Poptek by Implux app embed in your theme and save — overlays appear on your storefront after that.';
 
   if (embedStatus === 'enabled') {
     embedVisual = 'complete';
-    embedDetail = 'The Implux app embed is enabled on your live theme.';
+    embedDetail = 'The Poptek by Implux app embed is enabled on your live theme.';
   } else if (embedStatus === 'disabled') {
     embedVisual = 'attention';
     embedDetail =
-      'The Implux app embed is present but turned off. Open the theme editor, enable it, and save your theme.';
+      'The Poptek by Implux app embed is present but turned off. Open the theme editor, enable it, and save your theme.';
   } else if (embedStatus === 'not_configured') {
     embedVisual = 'attention';
     embedDetail =
-      'The Implux app embed is not enabled yet. Use the button below, turn on Implux under App embeds, then save.';
+      'The Poptek by Implux app embed is not enabled yet. Use the button below, turn on Poptek by Implux under App embeds, then save.';
   } else {
     embedVisual = 'unknown';
     embedDetail =
-      'We could not confirm embed status from the theme API. Open the theme editor and verify Implux is enabled under App embeds, then save.';
+      'We could not confirm embed status from the theme API. Open the theme editor and verify Poptek by Implux is enabled under App embeds, then save.';
   }
 
   const steps = [
@@ -117,13 +118,18 @@ export default function SetupChecklist({
           ))}
         </List>
 
-        {themeEditorUrl ? (
+        {themeEditor ? (
           <InlineStack gap="200">
-            <Button url={themeEditorUrl} variant="primary" external>
+            <Button
+              variant="primary"
+              onClick={() => {
+                openThemeEditorNavigation(themeEditor);
+              }}
+            >
               Enable Poptek overlay
             </Button>
             <Text as="span" variant="bodySm" tone="subdued">
-              Opens the theme editor (App embeds). Toggle <strong>Implux</strong>, then click Save.
+              Opens the theme editor (App embeds). Toggle <strong>Poptek by Implux</strong>, then click Save.
             </Text>
           </InlineStack>
         ) : (
